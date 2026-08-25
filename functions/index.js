@@ -125,14 +125,22 @@ exports.checkExpiredSubscriptions = functions.pubsub
 
 /**
  * Valide une preuve de paiement reçue et active/renouvelle l'abonnement
- * du magasin pour 30 jours. À appeler manuellement (ex: HTTPS callable
- * réservé à un compte admin, ou directement depuis la console Firebase
- * en modifiant le document — cette fonction est le point d'entrée propre
- * une fois que tu veux automatiser la validation).
+ * du magasin. Réservée à un compte admin identifié (custom claim
+ * `admin: true` sur le compte Firebase Auth de l'admin — voir plus bas
+ * comment le poser).
+ *
+ * Sécurité : SEUL un utilisateur authentifié avec ce claim admin peut
+ * appeler cette fonction. Sans ça, n'importe qui connaissant un
+ * storeId/paymentId pouvait s'auto-valider un abonnement gratuitement.
  */
 exports.validatePayment = functions.https.onCall(async (data, context) => {
-  // TODO : restreindre cet appel à un compte admin identifié
-  // (context.auth.token.admin === true) avant mise en prod.
+  if (!context.auth || context.auth.token.admin !== true) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Réservé à un compte admin.'
+    );
+  }
+
   const { storeId, paymentId } = data;
   if (!storeId || !paymentId) {
     throw new functions.https.HttpsError(
@@ -145,15 +153,40 @@ exports.validatePayment = functions.https.onCall(async (data, context) => {
   const storeRef = db.collection('stores').doc(storeId);
   const paymentRef = storeRef.collection('payment_requests').doc(paymentId);
 
+  const paymentSnap = await paymentRef.get();
+  if (!paymentSnap.exists) {
+    throw new functions.https.HttpsError(
+      'not-found',
+      'Preuve de paiement introuvable.'
+    );
+  }
+  const paymentData = paymentSnap.data();
+  if (paymentData.statut !== 'en_attente') {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Cette preuve de paiement est déjà "${paymentData.statut}".`
+    );
+  }
+
+  // Durée selon le forfait choisi (planId stocké sur la preuve de
+  // paiement) — avant ce correctif, un abonnement trimestriel ou annuel
+  // n'était activé que pour 30 jours par erreur, quel que soit le prix
+  // payé.
+  const plan = PLANS[paymentData.planId] || PLANS.mensuel;
   const subscriptionEndDate = admin.firestore.Timestamp.fromDate(
-    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    new Date(Date.now() + plan.dureeJours * 24 * 60 * 60 * 1000)
   );
 
   await db.runTransaction(async (tx) => {
-    tx.update(paymentRef, { statut: 'valide' });
+    tx.update(paymentRef, {
+      statut: 'valide',
+      validePar: context.auth.uid,
+      valideLe: admin.firestore.FieldValue.serverTimestamp(),
+    });
     tx.update(storeRef, {
       subscriptionStatus: 'actif',
       subscriptionEndDate,
+      currentPlanId: paymentData.planId || 'mensuel',
     });
   });
 

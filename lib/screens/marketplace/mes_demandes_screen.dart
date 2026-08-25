@@ -3,7 +3,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
 import '../../services/marketplace_models.dart';
 import '../../services/marketplace_service.dart';
-import '../../theme/app_theme.dart';
 
 class MesDemandesScreen extends StatelessWidget {
   final AppConfig config;
@@ -19,8 +18,6 @@ class MesDemandesScreen extends StatelessWidget {
     final confirme = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
         title: const Text('Marquer comme vendue'),
         content: Text(
           'Confirmer que "${r.pieceNom}" a été achetée chez '
@@ -57,11 +54,11 @@ class MesDemandesScreen extends StatelessWidget {
   Color _statutColor(PartRequest r) {
     switch (r.statut) {
       case 'open':
-        return AppColors.warning;
+        return Colors.orange;
       case 'vendu':
-        return AppColors.success;
+        return Colors.green;
       default:
-        return AppColors.textMuted;
+        return Colors.grey;
     }
   }
 
@@ -69,6 +66,8 @@ class MesDemandesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: config.primaryColor,
+        foregroundColor: Colors.white,
         title: const Text('Mes demandes'),
       ),
       body: StreamBuilder<List<PartRequest>>(
@@ -88,8 +87,7 @@ class MesDemandesScreen extends StatelessWidget {
           final requests = snapshot.data ?? [];
           if (requests.isEmpty) {
             return const Center(
-              child: Text('Aucune demande diffusée pour le moment.',
-                  style: TextStyle(color: AppColors.textSecondary)),
+              child: Text('Aucune demande diffusée pour le moment.'),
             );
           }
           return ListView.builder(
@@ -102,27 +100,17 @@ class MesDemandesScreen extends StatelessWidget {
                 child: ExpansionTile(
                   leading: r.photoUrl.isNotEmpty
                       ? ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                           child: Image.network(r.photoUrl,
                               width: 48, height: 48, fit: BoxFit.cover),
                         )
-                      : Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.build,
-                              color: AppColors.primary),
-                        ),
+                      : const Icon(Icons.build),
                   title: Text(r.pieceNom.isEmpty ? 'Pièce' : r.pieceNom),
                   subtitle: Text(
                     _statutLabel(r),
                     style: TextStyle(
                       color: _statutColor(r),
                       fontSize: 12,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   children: [
@@ -131,7 +119,7 @@ class MesDemandesScreen extends StatelessWidget {
                         padding: EdgeInsets.all(16),
                         child: Text('Demande clôturée.',
                             style: TextStyle(
-                                fontSize: 13, color: AppColors.textSecondary)),
+                                fontSize: 13, color: Colors.black54)),
                       )
                     else
                     StreamBuilder<List<PartOffer>>(
@@ -155,7 +143,7 @@ class MesDemandesScreen extends StatelessWidget {
                               'Pas encore de réponse. Les magasins sont '
                               'notifiés, reviens un peu plus tard.',
                               style: TextStyle(
-                                  fontSize: 13, color: AppColors.textSecondary),
+                                  fontSize: 13, color: Colors.black54),
                             ),
                           );
                         }
@@ -182,8 +170,7 @@ class MesDemandesScreen extends StatelessWidget {
                                         if (o.storeTel.isNotEmpty)
                                           IconButton(
                                             icon: const Icon(Icons.call,
-                                                size: 20,
-                                                color: AppColors.primary),
+                                                size: 20),
                                             onPressed: () => _call(o.storeTel),
                                           ),
                                         if (r.estOuverte)
@@ -192,7 +179,7 @@ class MesDemandesScreen extends StatelessWidget {
                                             icon: const Icon(
                                                 Icons.check_circle_outline,
                                                 size: 20,
-                                                color: AppColors.success),
+                                                color: Colors.green),
                                             onPressed: () =>
                                                 _marquerVendu(context, r, o),
                                           ),

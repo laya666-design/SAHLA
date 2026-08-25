@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/store_service.dart';
-import '../../theme/app_theme.dart';
 
 class StoreSignupScreen extends StatefulWidget {
   final AppConfig config;
@@ -38,8 +37,6 @@ class _StoreSignupScreenState extends State<StoreSignupScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
           title: const Text('Compte créé'),
           content: const Text(
             'Ton compte est en attente de validation. Tu recevras les '
@@ -70,6 +67,8 @@ class _StoreSignupScreenState extends State<StoreSignupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: widget.config.primaryColor,
+        foregroundColor: Colors.white,
         title: const Text('Créer un compte magasin'),
       ),
       body: SafeArea(
@@ -108,11 +107,15 @@ class _StoreSignupScreenState extends State<StoreSignupScreen> {
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: AppColors.error)),
+                Text(_error!, style: const TextStyle(color: Colors.red)),
               ],
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: _loading ? null : _signup,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  backgroundColor: widget.config.primaryColor,
+                ),
                 child: _loading
                     ? const SizedBox(
                         width: 20,

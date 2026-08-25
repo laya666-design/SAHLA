@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/store_service.dart';
-import '../theme/app_theme.dart';
 import 'buyer_portal_screen.dart';
 import 'marketplace/store_dashboard_screen.dart';
 import 'marketplace/store_login_screen.dart';
@@ -33,7 +32,7 @@ class PartsPortalScreen extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               _t('Choisis ton profil pour continuer.', 'اختر ملفك للمتابعة.'),
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: const TextStyle(color: Colors.black54),
             ),
             const SizedBox(height: 28),
             _PortalCard(
@@ -44,7 +43,7 @@ class PartsPortalScreen extends StatelessWidget {
                 'diffuse ta demande aux magasins.',
                 'صوّر القطعة المكسورة، احصل على المرجع وأرسل طلبك للمتاجر.',
               ),
-              color: AppColors.primary,
+              color: config.primaryColor,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -52,7 +51,7 @@ class PartsPortalScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             _PortalCard(
               icon: Icons.storefront_outlined,
               title: _t('Portail vendeur — Espace magasin', 'بوابة البائع'),
@@ -61,7 +60,7 @@ class PartsPortalScreen extends StatelessWidget {
                 'réponds avec ton prix, gère ton abonnement.',
                 'مخصص للمتاجر: استقبل الطلبات، أجب بالسعر، أدر اشتراكك.',
               ),
-              color: AppColors.textPrimary,
+              color: Colors.black87,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -95,44 +94,46 @@ class _PortalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: color, size: 28),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 16)),
-                    const SizedBox(height: 4),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                            height: 1.35)),
-                  ],
-                ),
+              child: Icon(icon, color: color, size: 30),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                ],
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, color: AppColors.textMuted),
-            ],
-          ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.black38),
+          ],
         ),
       ),
     );

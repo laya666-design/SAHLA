@@ -75,12 +75,7 @@ class StoreService {
   /// pour [signUp], une validation manuelle reste nécessaire ; le magasin
   /// peut ensuite compléter téléphone/adresse depuis son tableau de bord.
   static Future<void> signInWithGoogle({bool rememberMe = true}) async {
-    final googleUser = await GoogleSignIn(
-      // Client ID "Web" (client_type: 3) du google-services.json — requis
-      // pour que Google renvoie un idToken utilisable par Firebase Auth.
-      serverClientId:
-          '994131871524-dbn081ucefsf4vi4v0jl1m4gc11di90p.apps.googleusercontent.com',
-    ).signIn();
+    final googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) {
       throw Exception('Connexion Google annulée.');
     }

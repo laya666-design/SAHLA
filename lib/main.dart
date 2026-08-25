@@ -4,7 +4,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'firebase_options.dart';
 import 'config/app_config.dart';
-import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'services/notification_service.dart';
 import 'services/store_service.dart';
@@ -61,7 +60,13 @@ class _AjalakAppState extends State<AjalakApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: const [Locale('fr'), Locale('ar')],
-          theme: AppTheme.light,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: config.primaryColor,
+              primary: config.primaryColor,
+            ),
+          ),
           home: HomeScreen(config: config, isAr: isAr),
         );
       },

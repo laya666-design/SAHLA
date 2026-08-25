@@ -1,22 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// --- Lecture défensive des champs Firestore ---
-// `as Type?` lève une exception dès qu'un champ existe avec un type
-// différent de celui attendu (une String au lieu d'une List, par exemple),
-// pas seulement s'il est absent. Dans un `.map(Modele.fromDoc).toList()`,
-// cette seule exception fait échouer tout le lot de documents, pas
-// uniquement le document fautif. `is Type` ne lève jamais : on retombe
-// simplement sur une valeur par défaut pour le champ problématique, et les
-// autres documents s'affichent normalement.
-DateTime? _asDate(dynamic v) => v is Timestamp ? v.toDate() : null;
-
-List<String> _asStringList(dynamic v) =>
-    v is List ? v.map((e) => e.toString()).toList() : const [];
-
-num _asNum(dynamic v, [num fallback = 0]) => v is num ? v : fallback;
-
-bool _asBool(dynamic v, [bool fallback = false]) => v is bool ? v : fallback;
-
 /// Une demande de pièce diffusée aux magasins (Phase 4).
 class PartRequest {
   final String id;
@@ -55,13 +38,17 @@ class PartRequest {
       clientId: d['clientId']?.toString() ?? '',
       pieceNom: d['pieceNom']?.toString() ?? '',
       reference: d['reference']?.toString() ?? '',
-      compatibilite: _asStringList(d['compatibilite']),
+      compatibilite: (d['compatibilite'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
       photoUrl: d['photoUrl']?.toString() ?? '',
       statut: d['statut']?.toString() ?? 'open',
-      dateCreation: _asDate(d['dateCreation']) ?? DateTime.now(),
+      dateCreation: (d['dateCreation'] as Timestamp?)?.toDate() ??
+          DateTime.now(),
       soldToStoreId: d['soldToStoreId']?.toString(),
       soldToStoreNom: d['soldToStoreNom']?.toString(),
-      dateVente: _asDate(d['dateVente']),
+      dateVente: (d['dateVente'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -105,10 +92,11 @@ class PartOffer {
       storeId: d['storeId']?.toString() ?? '',
       storeNom: d['storeNom']?.toString() ?? '',
       storeTel: d['storeTel']?.toString() ?? '',
-      prix: _asNum(d['prix']),
+      prix: (d['prix'] is num) ? d['prix'] as num : 0,
       stock: d['stock']?.toString() ?? '',
       message: d['message']?.toString() ?? '',
-      dateReponse: _asDate(d['dateReponse']) ?? DateTime.now(),
+      dateReponse:
+          (d['dateReponse'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
@@ -217,12 +205,12 @@ class StoreProfile {
       nom: d['nom']?.toString() ?? '',
       tel: d['tel']?.toString() ?? '',
       adresse: d['adresse']?.toString() ?? '',
-      actif: _asBool(d['actif']),
+      actif: d['actif'] as bool? ?? false,
       fcmToken: d['fcmToken']?.toString(),
       subscriptionStatus:
           d['subscriptionStatus']?.toString() ?? SubscriptionStatus.essai,
-      trialEndDate: _asDate(d['trialEndDate']),
-      subscriptionEndDate: _asDate(d['subscriptionEndDate']),
+      trialEndDate: (d['trialEndDate'] as Timestamp?)?.toDate(),
+      subscriptionEndDate: (d['subscriptionEndDate'] as Timestamp?)?.toDate(),
       currentPlanId: d['currentPlanId']?.toString(),
     );
   }
@@ -268,11 +256,12 @@ class PaymentRequest {
     return PaymentRequest(
       id: doc.id,
       storeId: d['storeId']?.toString() ?? '',
-      montant: _asNum(d['montant']),
+      montant: (d['montant'] is num) ? d['montant'] as num : 0,
       methode: d['methode']?.toString() ?? '',
       recuUrl: d['recuUrl']?.toString() ?? '',
       statut: d['statut']?.toString() ?? 'en_attente',
-      dateEnvoi: _asDate(d['dateEnvoi']) ?? DateTime.now(),
+      dateEnvoi:
+          (d['dateEnvoi'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 

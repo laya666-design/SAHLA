@@ -6,7 +6,6 @@ import '../../config/app_config.dart';
 import '../../services/marketplace_models.dart';
 import '../../services/payment_service.dart';
 import '../../services/store_service.dart';
-import '../../theme/app_theme.dart';
 
 /// Espace abonnement du magasin : statut de l'essai/abonnement en cours,
 /// choix d'un forfait, et paiement automatique par carte (Chargily Pay —
@@ -92,8 +91,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
           title: const Text('Preuve envoyée'),
           content: const Text(
             'Ton paiement est en cours de vérification. Ton abonnement '
@@ -122,7 +119,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     late final String titre;
     late final String sousTitre;
     late final Color couleur;
-    late final Color couleurFond;
     late final IconData icone;
 
     switch (p.subscriptionStatus) {
@@ -133,8 +129,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ? 'Profite de l\'essai gratuit, aucun paiement requis.'
             : 'Ton essai gratuit est terminé. Choisis un forfait pour '
                 'continuer à recevoir des demandes.';
-        couleur = j > 0 ? AppColors.success : AppColors.errorText;
-        couleurFond = j > 0 ? AppColors.successLight : AppColors.errorLight;
+        couleur = j > 0 ? Colors.green : Colors.red;
         icone = j > 0 ? Icons.card_giftcard : Icons.lock_clock;
         break;
       case SubscriptionStatus.actif:
@@ -150,28 +145,24 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         sousTitre = j > 0
             ? 'Merci ! Tu reçois toutes les demandes de pièces.'
             : 'Ton abonnement est terminé. Renouvelle pour continuer.';
-        couleur = j > 0 ? AppColors.success : AppColors.errorText;
-        couleurFond = j > 0 ? AppColors.successLight : AppColors.errorLight;
+        couleur = j > 0 ? Colors.green : Colors.red;
         icone = j > 0 ? Icons.verified : Icons.lock_clock;
         break;
       case SubscriptionStatus.enAttente:
         titre = 'Paiement en cours de vérification';
         sousTitre = 'On valide généralement sous 24h. Reviens un peu plus tard.';
-        couleur = AppColors.warning;
-        couleurFond = AppColors.warningLight;
+        couleur = Colors.orange;
         icone = Icons.hourglass_top;
         break;
       default:
         titre = 'Abonnement expiré';
         sousTitre = 'Choisis un forfait pour recevoir les demandes de pièces.';
-        couleur = AppColors.errorText;
-        couleurFond = AppColors.errorLight;
+        couleur = Colors.red;
         icone = Icons.lock_clock;
     }
 
     return Card(
-      margin: EdgeInsets.zero,
-      color: couleurFond,
+      color: couleur.withOpacity(0.08),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -197,44 +188,41 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Widget _forfaitCard(SubscriptionPlan p) {
     final selected = p.id == _planId;
     final mensualise = p.prixParMoisDA.round();
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      color: selected ? AppColors.primaryLight : null,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: selected ? AppColors.primary : Colors.transparent,
-          width: 2,
-        ),
-      ),
-      child: InkWell(
-        onTap: () => setState(() => _planId = p.id),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Radio<String>(
-                value: p.id,
-                groupValue: _planId,
-                activeColor: AppColors.primary,
-                onChanged: (v) => setState(() => _planId = v ?? _planId),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(p.nom, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text('≈ $mensualise DA / mois',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary)),
-                  ],
-                ),
-              ),
-              Text('${p.prixDA} DA',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ],
+    return InkWell(
+      onTap: () => setState(() => _planId = p.id),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? widget.config.primaryColor : Colors.grey.shade300,
+            width: selected ? 2 : 1,
           ),
+          color: selected ? widget.config.primaryColor.withOpacity(0.06) : null,
+        ),
+        child: Row(
+          children: [
+            Radio<String>(
+              value: p.id,
+              groupValue: _planId,
+              activeColor: widget.config.primaryColor,
+              onChanged: (v) => setState(() => _planId = v ?? _planId),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p.nom, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('≈ $mensualise DA / mois',
+                      style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                ],
+              ),
+            ),
+            Text('${p.prixDA} DA',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
         ),
       ),
     );
@@ -247,6 +235,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: widget.config.primaryColor,
+        foregroundColor: Colors.white,
         title: const Text('Mon abonnement'),
       ),
       body: SingleChildScrollView(
@@ -257,18 +247,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
+                color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.badge_outlined,
-                      size: 16, color: AppColors.primary),
+                  const Icon(Icons.badge_outlined, size: 16, color: Colors.black54),
                   const SizedBox(width: 6),
                   Text('ID magasin : ${p.idCourt}',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.primary)),
+                      style: const TextStyle(fontSize: 12, color: Colors.black54)),
                 ],
               ),
             ),
@@ -290,12 +278,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 label: Text(_payingAuto
                     ? 'Ouverture du paiement…'
                     : 'Payer ${_planChoisi.prixDA} DA par carte (CIB / Edahabia)'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  backgroundColor: widget.config.primaryColor,
+                ),
               ),
               const SizedBox(height: 4),
               const Text(
                 'Paiement 100% automatique via Chargily Pay : ton abonnement '
                 's\'active dès la confirmation, sans rien envoyer.',
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 12, color: Colors.black45),
               ),
               const SizedBox(height: 16),
               TextButton(
@@ -310,6 +302,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   value: _methode,
                   decoration: const InputDecoration(
                     labelText: 'Méthode de paiement',
+                    border: OutlineInputBorder(),
                   ),
                   items: const [
                     DropdownMenuItem(value: 'Baridimob', child: Text('Baridimob')),
@@ -327,13 +320,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 if (_recu != null) ...[
                   const SizedBox(height: 12),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     child: Image.file(_recu!, height: 160, fit: BoxFit.cover),
                   ),
                 ],
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: _sendingManuel ? null : _envoyerManuel,
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
                   child: _sendingManuel
                       ? const SizedBox(
                           width: 20, height: 20,

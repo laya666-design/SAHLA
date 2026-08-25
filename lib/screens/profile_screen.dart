@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/app_config.dart';
 import '../services/vehicule_service.dart';
-import '../theme/app_theme.dart';
 
 /// Onglet Profil : remplace l'ancien onglet Carte (statique, peu utile).
 /// Regroupe le statut du compte, les réglages (langue, rappels) et le
@@ -45,50 +44,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
 
               // Carte statut du compte
-              Card(
-                margin: EdgeInsets.zero,
-                color: AppColors.primaryLight,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 26,
-                        backgroundColor: AppColors.primary,
-                        child: Icon(Icons.person, color: Colors.white),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: widget.config.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: widget.config.primaryColor,
+                      child: const Icon(Icons.person, color: Colors.white),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.config.appName,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                          const SizedBox(height: 2),
+                          Text(
+                            isPremium
+                                ? t('Compte Premium', 'حساب Premium')
+                                : t('Compte gratuit', 'حساب مجاني'),
+                            style: TextStyle(
+                                color: isPremium
+                                    ? const Color(0xFF166534)
+                                    : Colors.black54,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(widget.config.appName,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(height: 2),
-                            Text(
-                              isPremium
-                                  ? t('Compte Premium', 'حساب Premium')
-                                  : t('Compte gratuit', 'حساب مجاني'),
-                              style: TextStyle(
-                                  color: isPremium
-                                      ? AppColors.success
-                                      : AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13),
-                            ),
-                          ],
-                        ),
+                    ),
+                    if (!isPremium)
+                      Chip(
+                        label: const Text('Premium',
+                            style:
+                                TextStyle(fontSize: 11, color: Colors.white)),
+                        backgroundColor: widget.config.primaryColor,
                       ),
-                      if (!isPremium)
-                        const Chip(
-                          label: Text('Premium',
-                              style:
-                                  TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: AppColors.primary,
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),
@@ -100,9 +100,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               // Langue
               Card(
-                margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
-                  leading: const Icon(Icons.language, color: AppColors.primary),
+                  leading: const Icon(Icons.language),
                   title: Text(t('Langue', 'اللغة')),
                   subtitle: Text(isAr ? 'العربية' : 'Français'),
                   trailing: SegmentedButton<bool>(
@@ -119,10 +118,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               // Rappels SMS/Appel
               Card(
-                margin: const EdgeInsets.only(bottom: 12),
                 child: SwitchListTile(
-                  secondary: const Icon(Icons.notifications_active_outlined,
-                      color: AppColors.primary),
+                  secondary: const Icon(Icons.notifications_active_outlined),
                   title: Text(t('Rappels par SMS / Appel', 'تذكيرات عبر SMS / مكالمة')),
                   subtitle: Text(
                     isPremium
@@ -143,10 +140,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               if (!isPremium)
                 Card(
-                  margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
-                    leading: const Icon(Icons.workspace_premium,
-                        color: AppColors.primary),
+                    leading: Icon(Icons.workspace_premium,
+                        color: widget.config.primaryColor),
                     title: Text(t('Passer en Premium', 'الترقية إلى Premium')),
                     subtitle: Text(t(
                         'Véhicules illimités et rappels SMS/appel',
@@ -169,18 +165,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 8),
 
               Card(
-                margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
-                  leading: const Icon(Icons.mail_outline, color: AppColors.primary),
+                  leading: const Icon(Icons.mail_outline),
                   title: Text(t('Contacter le support', 'التواصل مع الدعم')),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _contactSupport,
                 ),
               ),
               Card(
-                margin: EdgeInsets.zero,
                 child: ListTile(
-                  leading: const Icon(Icons.info_outline, color: AppColors.primary),
+                  leading: const Icon(Icons.info_outline),
                   title: Text(t('À propos', 'حول التطبيق')),
                   subtitle: Text(t(
                       'El Bouni Pièces Auto — gestion véhicules & pièces détachées',

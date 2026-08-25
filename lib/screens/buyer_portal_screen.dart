@@ -14,6 +14,8 @@ class BuyerPortalScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: config.primaryColor,
+        foregroundColor: Colors.white,
         title: Text(isAr ? 'بوابة المشتري' : 'Portail acheteur'),
         actions: [
           IconButton(

@@ -18,21 +18,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
 
-  // Clés pour pouvoir déclencher l'ouverture du formulaire d'ajout
-  // depuis le FloatingActionButton du Scaffold parent (les VehiclesScreen
-  // n'ont pas leur propre Scaffold, donc pas leur propre FAB).
-  final _voituresKey = GlobalKey<State<VehiclesScreen>>();
-  final _motosKey = GlobalKey<State<VehiclesScreen>>();
-
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: widget.isAr,
       builder: (context, isAr, _) {
         final screens = [
-          VehiclesScreen(key: _voituresKey, config: widget.config, isAr: isAr),
+          VehiclesScreen(config: widget.config, isAr: isAr),
           VehiclesScreen(
-            key: _motosKey,
             config: widget.config,
             isAr: isAr,
             types: const [TypeVehicule.moto, TypeVehicule.scooter],
@@ -55,30 +48,21 @@ class _HomeScreenState extends State<HomeScreen> {
           textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
             appBar: AppBar(
+              backgroundColor: widget.config.primaryColor,
+              foregroundColor: Colors.white,
               title: Text(widget.config.appName),
               actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: _LangToggle(
-                    isAr: isAr,
-                    onTap: () => widget.isAr.value = !isAr,
+                TextButton(
+                  onPressed: () => widget.isAr.value = !isAr,
+                  child: Text(
+                    isAr ? 'FR' : 'AR',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
             body: IndexedStack(index: _index, children: screens),
-            floatingActionButton: (_index == 0 || _index == 1)
-                ? FloatingActionButton.extended(
-                    onPressed: () {
-                      final key = _index == 0 ? _voituresKey : _motosKey;
-                      (key.currentState as dynamic)?.openAddDialog();
-                    },
-                    icon: const Icon(Icons.add),
-                    label: Text(_index == 0
-                        ? (isAr ? 'إضافة سيارة' : 'Ajouter')
-                        : (isAr ? 'إضافة دراجة' : 'Ajouter')),
-                  )
-                : null,
             bottomNavigationBar: NavigationBar(
               selectedIndex: _index,
               onDestinationSelected: (i) => setState(() => _index = i),
@@ -104,49 +88,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
-    );
-  }
-}
-
-/// Interrupteur FR/AR en forme de pilule dans l'AppBar — remplace le
-/// simple texte cliquable par un composant avec un vrai état actif/inactif.
-class _LangToggle extends StatelessWidget {
-  final bool isAr;
-  final VoidCallback onTap;
-  const _LangToggle({required this.isAr, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _label('FR', !isAr),
-            Text('  /  ',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
-            _label('AR', isAr),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _label(String text, bool active) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: active ? Colors.white : Colors.white.withValues(alpha: 0.55),
-        fontWeight: active ? FontWeight.w800 : FontWeight.w500,
-        fontSize: 13,
-      ),
     );
   }
 }

@@ -3,7 +3,6 @@ import '../config/app_config.dart';
 import '../services/ocr_service.dart';
 import '../services/vehicule.dart';
 import '../services/vehicule_service.dart';
-import '../theme/app_theme.dart';
 import '../widgets/ad_banner.dart';
 import 'controle_technique_screen.dart';
 import 'insurance_screen.dart';
@@ -11,7 +10,12 @@ import 'insurance_screen.dart';
 class VehiclesScreen extends StatefulWidget {
   final AppConfig config;
   final bool isAr;
+
+  /// Catégories affichées dans cette rubrique. ex: [TypeVehicule.voiture]
+  /// pour la rubrique "Véhicules", ou [TypeVehicule.moto,
+  /// TypeVehicule.scooter] pour la rubrique "Motos & scooters".
   final List<String> types;
+
   final String titre;
   final String titreAr;
   final String sousTitre;
@@ -59,10 +63,6 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     super.initState();
     _refresh();
   }
-
-  /// Point d'entrée public utilisé par le FloatingActionButton de
-  /// HomeScreen (via GlobalKey) pour ouvrir le formulaire d'ajout.
-  Future<void> openAddDialog() => _openVehicleFormDialog();
 
   void _refresh() {
     setState(() => _vehicules = VehiculeService.getByTypes(widget.types));
@@ -114,8 +114,6 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(isEdit
               ? _t('Modifier le véhicule', 'تعديل المركبة')
               : _labelAjout),
@@ -198,8 +196,6 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(_t('Supprimer ce véhicule ?', 'حذف هذه المركبة؟')),
         content: Text(
           _t(
@@ -215,7 +211,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
             child: Text(_t('Annuler', 'إلغاء')),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(_t('Supprimer', 'حذف')),
           ),
@@ -241,47 +237,24 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
   void _showPremiumSheet() {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.08),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.workspace_premium,
-                        color: AppColors.primary, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(_t('Passe en Premium', 'الترقية إلى Premium'),
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w800)),
-                  ),
+                  Icon(Icons.workspace_premium,
+                      color: widget.config.primaryColor, size: 28),
+                  const SizedBox(width: 8),
+                  Text(_t('Passe en Premium', 'الترقية إلى Premium'),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               Text(
                 _t(
                   'La version gratuite permet de gérer 1 élément dans cette '
@@ -291,44 +264,36 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                   'قم بالترقية إلى Premium لإضافة عناصر بلا حدود، وتفعيل '
                   'التذكيرات عبر الرسائل النصية والمكالمات.',
                 ),
-                style: const TextStyle(
-                    color: AppColors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: SwitchListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  title: Text(
-                      _t('Rappels par SMS / Appel',
-                          'تذكيرات عبر SMS / مكالمة'),
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
-                  subtitle: Text(
-                    _t(
-                      'En plus des notifications sur le téléphone. '
-                      'Bientôt disponible.',
-                      'بالإضافة إلى إشعارات الهاتف. قريباً.',
-                    ),
-                    style: const TextStyle(fontSize: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                    _t('Rappels par SMS / Appel', 'تذكيرات عبر SMS / مكالمة')),
+                subtitle: Text(
+                  _t(
+                    'En plus des notifications sur le téléphone. '
+                    'Bientôt disponible.',
+                    'بالإضافة إلى إشعارات الهاتف. قريباً.',
                   ),
-                  value: SettingsService.smsRemindersEnabled,
-                  onChanged: (val) async {
-                    await SettingsService.setSmsRemindersEnabled(val);
-                    setSheetState(() {});
-                  },
+                  style: const TextStyle(fontSize: 12),
                 ),
+                value: SettingsService.smsRemindersEnabled,
+                onChanged: (val) async {
+                  await SettingsService.setSmsRemindersEnabled(val);
+                  setSheetState(() {});
+                },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: widget.config.primaryColor,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                  },
                   child: Text(_t('Bientôt disponible', 'قريباً')),
                 ),
               ),
@@ -347,6 +312,8 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
           length: 2,
           child: Scaffold(
             appBar: AppBar(
+              backgroundColor: widget.config.primaryColor,
+              foregroundColor: Colors.white,
               title: Text(v.nom),
               bottom: TabBar(
                 indicatorColor: Colors.white,
@@ -385,16 +352,16 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     Color fg;
     switch (status.level) {
       case StatusLevel.ok:
-        bg = AppColors.successLight;
-        fg = AppColors.success;
+        bg = const Color(0xFFDCFCE7);
+        fg = const Color(0xFF166534);
         break;
       case StatusLevel.warning:
-        bg = AppColors.warningLight;
-        fg = AppColors.warning;
+        bg = const Color(0xFFFEF3C7);
+        fg = const Color(0xFF92400E);
         break;
       case StatusLevel.expired:
-        bg = AppColors.errorLight;
-        fg = AppColors.errorText;
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFF991B1B);
         break;
     }
     return Container(
@@ -424,141 +391,118 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: () async => _refresh(),
-        color: AppColors.primary,
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           children: [
             Text(_titre, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 4),
-            Text(_sousTitre, style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 14),
+            Text(_sousTitre, style: const TextStyle(color: Colors.black54)),
+            const SizedBox(height: 12),
             const AdBanner(),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             if (_vehicules.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 36),
+                padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Center(
                   child: Column(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.06),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(widget.iconePrincipale,
-                            size: 36, color: AppColors.primary),
-                      ),
-                      const SizedBox(height: 14),
+                      Icon(widget.iconePrincipale,
+                          size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 8),
                       Text(_labelVide,
-                          style: Theme.of(context).textTheme.bodyMedium),
+                          style: const TextStyle(color: Colors.black54)),
                     ],
                   ),
                 ),
               ),
             ..._vehicules.map((v) => Card(
-                  shape: AppTheme.cardShape,
                   margin: const EdgeInsets.only(bottom: 12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: () => _openVehicle(v),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.only(
+                        left: 12, top: 12, bottom: 12, right: 4),
+                    leading: CircleAvatar(
+                      backgroundColor:
+                          widget.config.primaryColor.withOpacity(0.1),
+                      foregroundColor: widget.config.primaryColor,
+                      child: Icon(_iconForType(v.type)),
+                    ),
+                    title: Text(v.nom,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color:
-                                  AppColors.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(14),
+                          if (widget.types.length > 1)
+                            Chip(
+                              label: Text(_labelForType(v.type),
+                                  style: const TextStyle(fontSize: 11)),
+                              visualDensity: VisualDensity.compact,
+                              backgroundColor:
+                                  widget.config.primaryColor.withOpacity(0.08),
                             ),
-                            child: Icon(_iconForType(v.type),
-                                color: AppColors.primary),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(v.nom,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 15)),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  children: [
-                                    if (widget.types.length > 1)
-                                      Chip(
-                                        label: Text(_labelForType(v.type),
-                                            style: const TextStyle(
-                                                fontSize: 11)),
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                    _statusChip(
-                                        v.assuranceExpiration,
-                                        _t('Assurance non renseignée',
-                                            'التأمين غير محدد')),
-                                    _statusChip(
-                                        v.controleTechniqueExpiration,
-                                        _t('CT non renseigné',
-                                            'الفحص التقني غير محدد')),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: _t('Modifier', 'تعديل'),
-                                icon: const Icon(Icons.edit_outlined,
-                                    size: 19, color: AppColors.textMuted),
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () =>
-                                    _openVehicleFormDialog(existing: v),
-                              ),
-                              IconButton(
-                                tooltip: _t('Supprimer', 'حذف'),
-                                icon: const Icon(Icons.delete_outline,
-                                    size: 19, color: AppColors.error),
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () => _confirmDelete(v),
-                              ),
-                            ],
-                          ),
+                          _statusChip(
+                              v.assuranceExpiration,
+                              _t('Assurance non renseignée',
+                                  'التأمين غير محدد')),
+                          _statusChip(
+                              v.controleTechniqueExpiration,
+                              _t('CT non renseigné',
+                                  'الفحص التقني غير محدد')),
                         ],
                       ),
                     ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: _t('Modifier', 'تعديل'),
+                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          onPressed: () =>
+                              _openVehicleFormDialog(existing: v),
+                        ),
+                        IconButton(
+                          tooltip: _t('Supprimer', 'حذف'),
+                          icon: const Icon(Icons.delete_outline,
+                              size: 20, color: Colors.red),
+                          onPressed: () => _confirmDelete(v),
+                        ),
+                        const Icon(Icons.chevron_right, color: Colors.black38),
+                      ],
+                    ),
+                    onTap: () => _openVehicle(v),
                   ),
                 )),
             if (showLockedCard)
               Card(
-                shape: AppTheme.cardShape,
                 margin: const EdgeInsets.only(bottom: 12),
-                color: AppColors.background,
+                color: Colors.grey.shade100,
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(12),
-                  leading: const Icon(Icons.lock_outline,
-                      color: AppColors.textMuted),
-                  title: Text(
-                    _t('Passe en Premium pour en ajouter plus',
-                        'قم بالترقية إلى Premium لإضافة المزيد'),
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600),
+                  leading:
+                      const Icon(Icons.lock_outline, color: Colors.black45),
+                  title: Text(_t('Élément suivant', 'العنصر التالي'),
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(_t(
+                      'Réservé aux comptes Premium', 'حصري لحسابات Premium')),
+                  trailing: Chip(
+                    label: const Text('Premium',
+                        style: TextStyle(fontSize: 11, color: Colors.white)),
+                    backgroundColor: widget.config.primaryColor,
                   ),
-                  subtitle: Text(
-                    _t('Véhicules illimités avec Premium',
-                        'مركبات غير محدودة مع Premium'),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: AppColors.textMuted),
                   onTap: _showPremiumSheet,
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openVehicleFormDialog(),
+                  icon: const Icon(Icons.add),
+                  label: Text(_labelAjout),
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48)),
                 ),
               ),
           ],

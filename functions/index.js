@@ -194,6 +194,91 @@ exports.validatePayment = functions.https.onCall(async (data, context) => {
 });
 
 /**
+ * Liste toutes les preuves de paiement en attente, tous magasins
+ * confondus — réservée à un compte admin (voir setAdmin.js). Utilise le
+ * SDK admin (collectionGroup), donc pas besoin d'ouvrir les règles
+ * Firestore pour ça : seule cette fonction peut voir les paiements de
+ * tous les magasins à la fois.
+ */
+exports.listPendingPayments = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.token.admin !== true) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Réservé à un compte admin.'
+    );
+  }
+
+  const db = admin.firestore();
+  const snap = await db
+    .collectionGroup('payment_requests')
+    .where('statut', '==', 'en_attente')
+    .orderBy('dateEnvoi', 'asc')
+    .get();
+
+  const results = await Promise.all(
+    snap.docs.map(async (doc) => {
+      const d = doc.data();
+      const storeId = doc.ref.parent.parent.id;
+      const storeSnap = await db.collection('stores').doc(storeId).get();
+      const storeNom = storeSnap.exists ? storeSnap.data().nom : '(magasin inconnu)';
+      return {
+        paymentId: doc.id,
+        storeId,
+        storeNom,
+        montant: d.montant,
+        methode: d.methode,
+        recuUrl: d.recuUrl,
+        planId: d.planId || 'mensuel',
+        dateEnvoi: d.dateEnvoi ? d.dateEnvoi.toDate().toISOString() : null,
+      };
+    })
+  );
+
+  return { payments: results };
+});
+
+/**
+ * Refuse une preuve de paiement (ex: reçu illisible, montant incorrect).
+ * Réservée à un compte admin — ne touche pas au statut de l'abonnement
+ * du magasin, juste au statut de la preuve.
+ */
+exports.rejectPayment = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.token.admin !== true) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Réservé à un compte admin.'
+    );
+  }
+
+  const { storeId, paymentId, raison } = data;
+  if (!storeId || !paymentId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'storeId et paymentId sont requis.'
+    );
+  }
+
+  const paymentRef = db_ref(storeId, paymentId);
+  await paymentRef.update({
+    statut: 'refuse',
+    raisonRefus: raison || null,
+    traitePar: context.auth.uid,
+    traiteLe: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { success: true };
+});
+
+function db_ref(storeId, paymentId) {
+  return admin
+    .firestore()
+    .collection('stores')
+    .doc(storeId)
+    .collection('payment_requests')
+    .doc(paymentId);
+}
+
+/**
  * Crée une session de paiement Chargily Pay pour le forfait choisi et
  * renvoie l'URL de checkout à ouvrir dans le navigateur. Appelée depuis
  * l'app (PaymentService.createCheckout) — jamais de clé secrète côté

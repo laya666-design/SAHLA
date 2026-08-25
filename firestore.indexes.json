@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "payment_requests",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "statut", "order": "ASCENDING" },
+        { "fieldPath": "dateEnvoi", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

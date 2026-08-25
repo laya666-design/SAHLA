@@ -1,29 +1,37 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'cloudinary_service.dart';
 import 'marketplace_models.dart';
 
 /// Marketplace pièces — côté demandeur (client).
 ///
 /// Nécessite Firestore + Firebase Storage (Phase 4). Le client n'a pas de
-/// compte : on utilise un identifiant anonyme généré une fois et stocké
-/// localement (Hive), pour retrouver "mes demandes" sans forcer une
-/// inscription.
+/// compte visible (pas d'écran de connexion), mais utilise en coulisses
+/// une connexion Firebase anonyme : c'est cet uid anonyme qui sert
+/// d'identifiant de propriétaire (`clientId`) sur ses demandes, vérifié
+/// par les règles Firestore. Avant ce correctif, le clientId était un ID
+/// généré localement (donc lisible/imitable par n'importe qui, vu que
+/// les demandes sont en lecture publique) : n'importe qui pouvait clôturer
+/// ou marquer "vendue" la demande d'un autre client. La connexion
+/// anonyme Firebase corrige ça : impossible de forger l'uid de
+/// quelqu'un d'autre.
 class MarketplaceService {
   static const _requestsCollection = 'part_requests';
-  static const _settingsBox = 'settings';
-  static const _clientIdKey = 'marketplace_client_id';
 
-  static String get clientId {
-    final box = Hive.box(_settingsBox);
-    var id = box.get(_clientIdKey) as String?;
-    if (id == null) {
-      id = 'c_${DateTime.now().microsecondsSinceEpoch}';
-      box.put(_clientIdKey, id);
+  /// Garantit que le client a une session Firebase (anonyme) active et
+  /// retourne son uid. À appeler avant toute lecture/écriture liée au
+  /// client (créer une demande, lister "mes demandes", clôturer...).
+  static Future<String> ensureSignedIn() async {
+    var user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      final cred = await FirebaseAuth.instance.signInAnonymously();
+      user = cred.user;
     }
-    return id;
+    return user!.uid;
   }
+
+  static String? get clientId => FirebaseAuth.instance.currentUser?.uid;
 
   /// Diffuse une demande de pièce à tous les magasins actifs.
   /// Upload la photo sur Firebase Storage puis crée le document Firestore.
@@ -34,6 +42,7 @@ class MarketplaceService {
     required String reference,
     required List<String> compatibilite,
   }) async {
+    final uid = await ensureSignedIn();
     final id = FirebaseFirestore.instance.collection(_requestsCollection).doc().id;
 
     final photoUrl = await CloudinaryService.uploadImage(
@@ -43,7 +52,7 @@ class MarketplaceService {
 
     final request = PartRequest(
       id: id,
-      clientId: clientId,
+      clientId: uid,
       pieceNom: pieceNom,
       reference: reference,
       compatibilite: compatibilite,
@@ -61,10 +70,11 @@ class MarketplaceService {
   }
 
   /// Mes demandes, les plus récentes d'abord.
-  static Stream<List<PartRequest>> myRequests() {
-    return FirebaseFirestore.instance
+  static Stream<List<PartRequest>> myRequests() async* {
+    final uid = await ensureSignedIn();
+    yield* FirebaseFirestore.instance
         .collection(_requestsCollection)
-        .where('clientId', isEqualTo: clientId)
+        .where('clientId', isEqualTo: uid)
         .orderBy('dateCreation', descending: true)
         .snapshots()
         .map((s) => s.docs.map(PartRequest.fromDoc).toList());
@@ -107,3 +117,4 @@ class MarketplaceService {
     });
   }
 }
+

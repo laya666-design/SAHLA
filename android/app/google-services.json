@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "994131871524-2uov8on8gvvpgelt2q0uoms8ud3pbgmk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.elbouni.ajalaks.el_bouni_pieces_auto",
+            "certificate_hash": "56e1d7fc351ad36b4ab99e6f1f0b195d4bf0df7d"
+          }
+        },
+        {
           "client_id": "994131871524-mcvfdhrl1u587fd8e1oshm9llu2pim5d.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

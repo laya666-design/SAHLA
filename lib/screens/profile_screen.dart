@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/app_config.dart';
 import '../services/vehicule_service.dart';
+import 'admin/admin_login_screen.dart';
 
 /// Onglet Profil : remplace l'ancien onglet Carte (statique, peu utile).
 /// Regroupe le statut du compte, les réglages (langue, rappels) et le
@@ -179,6 +180,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   subtitle: Text(t(
                       'El Bouni Pièces Auto — gestion véhicules & pièces détachées',
                       'El Bouni Pièces Auto — إدارة المركبات وقطع الغيار')),
+                  // Accès admin caché : appui long ici, invisible pour
+                  // les utilisateurs normaux et les magasins.
+                  onLongPress: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AdminLoginScreen(config: widget.config),
+                    ),
+                  ),
                 ),
               ),
             ],

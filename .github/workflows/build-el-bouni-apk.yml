@@ -1,0 +1,95 @@
+name: Build El Bouni Pièces Auto APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+concurrency:
+  group: elbouni-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build APK (rouge)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Compléter le squelette Android manquant
+        run: |
+          flutter create . --platforms=android --org com.elbouni.ajalaks --project-name el_bouni_pieces_auto
+          echo "--- Vérification du squelette Gradle ---"
+          test -f android/gradle/wrapper/gradle-wrapper.properties \
+            && echo "OK : gradle-wrapper.properties présent" \
+            || echo "ATTENTION : gradle-wrapper.properties toujours absent"
+
+      - name: Activer Firebase (Google Services)
+        run: |
+          sed -i '/id("org.jetbrains.kotlin.android") version/a\    id("com.google.gms.google-services") version "4.4.2" apply false' android/settings.gradle.kts
+          sed -i '/id("dev.flutter.flutter-gradle-plugin")/a\    id("com.google.gms.google-services")' android/app/build.gradle.kts
+          echo "--- settings.gradle.kts ---"
+          cat android/settings.gradle.kts
+          echo "--- app/build.gradle.kts (plugins) ---"
+          head -n 10 android/app/build.gradle.kts
+
+      - name: Activer le desugaring (flutter_local_notifications)
+        run: |
+          sed -i '/compileOptions {/a\        isCoreLibraryDesugaringEnabled = true' android/app/build.gradle.kts
+          cat >> android/app/build.gradle.kts << 'EOF'
+
+          dependencies {
+              coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+          }
+          EOF
+          echo "--- Vérification ---"
+          grep -A3 "compileOptions" android/app/build.gradle.kts
+          tail -n 5 android/app/build.gradle.kts
+
+      - name: Configurer un token de débogage App Check fixe
+        run: |
+          sed -i 's#</application>#    <meta-data android:name="firebase_app_check_debug_secret" android:value="e0a3d9f4-6b21-4c8a-9f77-2d5c8a731b90" />\n    </application>#' android/app/src/main/AndroidManifest.xml
+          echo "--- Vérification ---"
+          grep -A1 "firebase_app_check_debug_secret" android/app/src/main/AndroidManifest.xml
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Utiliser le keystore debug du dépôt (empreinte SHA fixe)
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f android/keystore/debug.keystore ]; then
+            echo "ERREUR : android/keystore/debug.keystore introuvable dans le dépôt !"
+            echo "Le SHA doit rester fixe. Arrêt du build."
+            exit 1
+          fi
+          cp android/keystore/debug.keystore ~/.android/debug.keystore
+          echo "OK : keystore du dépôt copié"
+          echo "--- Empreinte SHA utilisée pour ce build ---"
+          keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep -E "SHA1:|SHA256:"
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK (debug, garanti vert)
+        run: flutter build apk --debug
+
+      - name: Afficher SHA-256 du keystore debug
+        run: |
+          keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EL-BOUNI-PIECES-AUTO
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14
+          overwrite: true

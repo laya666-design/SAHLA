@@ -111,6 +111,14 @@ class StoreService {
     await _registerFcmToken(user.uid);
   }
 
+  /// Envoie l'email Firebase de réinitialisation de mot de passe à
+  /// l'adresse fournie. Firebase gère l'envoi et la page de choix du
+  /// nouveau mot de passe ; rien d'autre à faire côté app une fois
+  /// l'appel terminé sans erreur.
+  static Future<void> sendPasswordResetEmail(String email) async {
+    await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+  }
+
   static Future<void> _saveRememberMe(bool rememberMe) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_rememberMeKey, rememberMe);

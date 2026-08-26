@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/store_service.dart';
 import 'store_dashboard_screen.dart';
+import 'store_forgot_password_screen.dart';
 import 'store_signup_screen.dart';
 
 class StoreLoginScreen extends StatefulWidget {
@@ -51,6 +52,33 @@ class _StoreLoginScreenState extends State<StoreLoginScreen> {
     }
   }
 
+  Future<void> _loginWithGoogle() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await StoreService.signInWithGoogle(rememberMe: _rememberMe);
+      _goToDashboard();
+    } catch (e) {
+      setState(() => _error = 'Erreur : $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _goToForgotPassword() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StoreForgotPasswordScreen(
+          config: widget.config,
+          initialEmail: _emailController.text.trim(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,7 +113,18 @@ class _StoreLoginScreenState extends State<StoreLoginScreen> {
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Mot de passe'),
               ),
-              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _loading ? null : _goToForgotPassword,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(50, 30),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Mot de passe oublié ?'),
+                ),
+              ),
               CheckboxListTile(
                 value: _rememberMe,
                 onChanged: (v) => setState(() => _rememberMe = v ?? true),
@@ -113,6 +152,26 @@ class _StoreLoginScreenState extends State<StoreLoginScreen> {
                             strokeWidth: 2, color: Colors.white),
                       )
                     : const Text('Se connecter'),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: const [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('ou', style: TextStyle(color: Colors.black45)),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _loading ? null : _loginWithGoogle,
+                icon: const Icon(Icons.g_mobiledata, size: 28),
+                label: const Text('Continuer avec Google'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                ),
               ),
               const SizedBox(height: 8),
               TextButton(

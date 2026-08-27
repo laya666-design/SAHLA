@@ -40,5 +40,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+# record 5.x tire record_linux 0.7.2, incompatible avec
+# record_platform_interface (manque startStream / hasPermission).
+# Sans ce override, `flutter build apk` échoue même pour Android
+# car Flutter compile le code Dart de toutes les plateformes.
+dependency_overrides:
+  record_linux: ^1.1.1
+
 flutter:
   uses-material-design: true

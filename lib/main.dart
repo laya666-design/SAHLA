@@ -61,7 +61,7 @@ class _AjalakAppState extends State<AjalakApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: const [Locale('fr'), Locale('ar')],
-          theme: AppTheme.dark(config),
+          theme: AppTheme.light(config),
           home: HomeScreen(config: config, isAr: isAr),
         );
       },

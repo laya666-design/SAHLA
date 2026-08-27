@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/marketplace_models.dart';
 import '../../services/store_service.dart';
+import '../../widgets/screen_background.dart';
 import 'store_phone_login_screen.dart';
 import 'subscription_screen.dart';
 
@@ -153,7 +154,10 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
               IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
             ],
           ),
-          body: profile == null
+          body: ScreenBackground(
+            category: BackgroundCategory.magasin,
+            accentColor: widget.config.primaryColor,
+            child: profile == null
               ? const Center(child: Text('Profil introuvable.'))
               : !profile.actif
                   ? const Center(
@@ -291,6 +295,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                             ),
                           ],
                         ),
+          ),
         );
       },
     );

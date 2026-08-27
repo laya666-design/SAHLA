@@ -4,6 +4,7 @@ import '../services/ocr_service.dart';
 import '../services/vehicule.dart';
 import '../services/vehicule_service.dart';
 import '../widgets/ad_banner.dart';
+import '../widgets/screen_background.dart';
 import 'carte_grise_screen.dart';
 import 'controle_technique_screen.dart';
 import 'insurance_screen.dart';
@@ -58,6 +59,21 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
   String get _labelVide => _ar ? widget.labelVideAr : widget.labelVide;
 
   String _t(String fr, String ar) => _ar ? ar : fr;
+
+  BackgroundCategory get _bgCategory {
+    if (widget.types.contains(TypeVehicule.moto) ||
+        widget.types.contains(TypeVehicule.scooter)) {
+      return BackgroundCategory.moto;
+    }
+    return BackgroundCategory.voiture;
+  }
+
+  BackgroundCategory _bgCategoryFor(Vehicule v) {
+    if (v.type == TypeVehicule.moto || v.type == TypeVehicule.scooter) {
+      return BackgroundCategory.moto;
+    }
+    return BackgroundCategory.voiture;
+  }
 
   @override
   void initState() {
@@ -411,7 +427,10 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
           // plus d'onglets : chaque section reste accessible à tout
           // moment, sans parcours forcé, pour re-scanner plus tard
           // (ex: renouvellement de l'assurance l'année suivante).
-          body: SafeArea(
+          body: ScreenBackground(
+            category: _bgCategoryFor(v),
+            accentColor: widget.config.primaryColor,
+            child: SafeArea(
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -445,6 +464,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                   embedded: true,
                 ),
               ],
+            ),
             ),
           ),
         ),
@@ -501,7 +521,10 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     final showLockedCard =
         !isPremium && _vehicules.length >= VehiculeService.freeLimit;
 
-    return SafeArea(
+    return ScreenBackground(
+      category: _bgCategory,
+      accentColor: widget.config.primaryColor,
+      child: SafeArea(
       child: RefreshIndicator(
         onRefresh: () async => _refresh(),
         child: ListView(
@@ -620,6 +643,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

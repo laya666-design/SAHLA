@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 
-/// Palette et thème visuels VROUM23 — thème sombre. Un seul point de
-/// vérité pour les couleurs ; les écrans doivent utiliser ces tokens
-/// plutôt que des couleurs codées en dur.
+/// Palette et thème visuels VROUM23 — thème CLAIR (fond blanc). Un seul
+/// point de vérité pour les couleurs ; les écrans doivent utiliser ces
+/// tokens plutôt que des couleurs codées en dur.
+///
+/// Remplace l'ancien thème sombre (fond #0A0A0A) : demande explicite de
+/// retirer le noir au profit du blanc, avec des images de fond
+/// thématiques par écran (voir widgets/screen_background.dart) qui
+/// nécessitent un fond clair pour rester lisibles.
 class AppColors {
   AppColors._();
 
@@ -11,30 +16,31 @@ class AppColors {
   // l'icône de l'app / le splash screen.
   static const primary = Color(0xFF22C55E);
   static const primaryDark = Color(0xFF16A34A);
-  static const primaryLight = Color(0xFF14301F);
+  static const primaryLight = Color(0xFFE7F9EE);
 
   // États métier — indépendants de la couleur de marque.
   static const enchere = Color(0xFFF97316); // orange — enchères/offres
   static const sos = Color(0xFFEF4444); // rouge — alertes/SOS/expiré
 
-  // Fond sombre
-  static const background = Color(0xFF0A0A0A);
-  static const surface = Color(0xFF1A1A1A);
-  static const border = Color(0xFF2A2A2A);
+  // Fond clair
+  static const background = Color(0xFFFFFFFF);
+  static const surface = Color(0xFFFFFFFF);
+  static const surfaceMuted = Color(0xFFF7F8FA);
+  static const border = Color(0xFFE5E7EB);
 
   // Texte
-  static const textPrimary = Color(0xFFF5F5F5);
-  static const textSecondary = Color(0xFFA3A3A3);
-  static const textMuted = Color(0xFF6B6B6B);
+  static const textPrimary = Color(0xFF111827);
+  static const textSecondary = Color(0xFF4B5563);
+  static const textMuted = Color(0xFF9CA3AF);
 
   // États (assurance/CT/entretien) — vert/orange/rouge, indépendants de
   // la couleur de marque pour rester lisibles même si la marque change.
   static const success = primary;
-  static const successBg = Color(0xFF14301F);
+  static const successBg = Color(0xFFDCFCE7);
   static const warning = enchere;
-  static const warningBg = Color(0xFF3A2410);
+  static const warningBg = Color(0xFFFEF3C7);
   static const error = sos;
-  static const errorBg = Color(0xFF3A1414);
+  static const errorBg = Color(0xFFFEE2E2);
 }
 
 class AppTheme {
@@ -44,15 +50,15 @@ class AppTheme {
         borderRadius: BorderRadius.circular(20),
       );
 
-  /// Thème sombre VROUM23. [config] permet de garder la couleur de marque
+  /// Thème clair VROUM23. [config] permet de garder la couleur de marque
   /// pilotée depuis AppConfig plutôt que dupliquée ici.
-  static ThemeData dark(AppConfig config) {
+  static ThemeData light(AppConfig config) {
     final scheme = ColorScheme.fromSeed(
       seedColor: config.primaryColor,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
     ).copyWith(
       primary: config.primaryColor,
-      onPrimary: Colors.black,
+      onPrimary: Colors.white,
       secondary: config.enchereColor,
       error: config.sosColor,
       surface: AppColors.surface,
@@ -61,7 +67,7 @@ class AppTheme {
 
     final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.background,
     );
@@ -72,6 +78,7 @@ class AppTheme {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         centerTitle: false,
+        surfaceTintColor: Colors.transparent,
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 19,
@@ -127,7 +134,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: config.primaryColor,
-          foregroundColor: Colors.black,
+          foregroundColor: Colors.white,
           disabledBackgroundColor: config.primaryColor.withValues(alpha: 0.35),
           minimumSize: const Size.fromHeight(52),
           elevation: 0,
@@ -139,7 +146,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: config.primaryColor,
-          foregroundColor: Colors.black,
+          foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -165,7 +172,7 @@ class AppTheme {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: AppColors.surfaceMuted,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -194,19 +201,19 @@ class AppTheme {
       dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1),
 
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.surface,
-        contentTextStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 13.5),
+        backgroundColor: AppColors.textPrimary,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13.5),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppColors.border),
         ),
       ),
 
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.surface,
-        indicatorColor: config.primaryColor.withValues(alpha: 0.18),
+        indicatorColor: config.primaryColor.withValues(alpha: 0.14),
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
@@ -218,4 +225,8 @@ class AppTheme {
       ),
     );
   }
+
+  /// Conservé pour compatibilité si un écran y fait encore référence,
+  /// mais l'app utilise désormais [light] partout (voir main.dart).
+  static ThemeData dark(AppConfig config) => light(config);
 }

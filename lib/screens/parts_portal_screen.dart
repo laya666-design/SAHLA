@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/marketplace_service.dart';
 import '../services/store_service.dart';
+import '../widgets/screen_background.dart';
 import 'buyer_portal_screen.dart';
 import 'marketplace/buyer_phone_login_screen.dart';
 import 'marketplace/store_dashboard_screen.dart';
@@ -22,7 +23,10 @@ class PartsPortalScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return ScreenBackground(
+      category: BackgroundCategory.pieces,
+      accentColor: config.primaryColor,
+      child: SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -75,6 +79,7 @@ class PartsPortalScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -18,7 +18,16 @@ class InsuranceScreen extends StatefulWidget {
   /// avant, sans persistance (compatibilité ascendante).
   final Vehicule? vehicule;
 
-  const InsuranceScreen({super.key, required this.config, this.vehicule});
+  /// true quand ce widget est empilé dans la fiche véhicule à 3 sections
+  /// plutôt qu'affiché seul dans son propre onglet.
+  final bool embedded;
+
+  const InsuranceScreen({
+    super.key,
+    required this.config,
+    this.vehicule,
+    this.embedded = false,
+  });
 
   @override
   State<InsuranceScreen> createState() => _InsuranceScreenState();
@@ -150,107 +159,113 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!widget.embedded) ...[
+          Text(
+            widget.vehicule != null
+                ? 'Assurance / Vignette — ${widget.vehicule!.nom}'
+                : 'Assurance / Vignette',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Photographie la carte jaune pour calculer les jours restants.',
+            style: TextStyle(color: Colors.black54),
+          ),
+          const SizedBox(height: 16),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed:
+                    _loading ? null : () => _pickImage(ImageSource.camera),
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('Caméra'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  backgroundColor: widget.config.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed:
+                    _loading ? null : () => _pickImage(ImageSource.gallery),
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Galerie'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        if (_image != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(_image!, height: 180, fit: BoxFit.cover),
+          ),
+        const SizedBox(height: 16),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        if (_error != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEE2E2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(_error!,
+                style: const TextStyle(color: Color(0xFF991B1B))),
+          ),
+        if (_status != null) ...[
+          StatusCard(status: _status!),
+          const SizedBox(height: 16),
+        ],
+        if (_info != null &&
+            (_info!.compagnie.isNotEmpty ||
+                _info!.nom.isNotEmpty ||
+                _info!.marque.isNotEmpty))
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Détails',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
+                _infoRow('Compagnie', _info!.compagnie),
+                _infoRow('Nom', _info!.nom),
+                _infoRow('Véhicule', _info!.marque),
+                _infoRow('Police', _info!.police),
+                _infoRow('Début', _info!.debut),
+              ],
+            ),
+          ),
+      ],
+    );
+
+    if (widget.embedded) return content;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.vehicule != null
-                  ? 'Assurance / Vignette — ${widget.vehicule!.nom}'
-                  : 'Assurance / Vignette',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Photographie la carte jaune pour calculer les jours restants.',
-              style: TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        _loading ? null : () => _pickImage(ImageSource.camera),
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Caméra'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
-                      backgroundColor: widget.config.primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed:
-                        _loading ? null : () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library),
-                    label: const Text('Galerie'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (_image != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(_image!, height: 180, fit: BoxFit.cover),
-              ),
-            const SizedBox(height: 16),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            if (_error != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(_error!,
-                    style: const TextStyle(color: Color(0xFF991B1B))),
-              ),
-            if (_status != null) ...[
-              StatusCard(status: _status!),
-              const SizedBox(height: 16),
-            ],
-            if (_info != null &&
-                (_info!.compagnie.isNotEmpty ||
-                    _info!.nom.isNotEmpty ||
-                    _info!.marque.isNotEmpty))
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Détails',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15)),
-                    const SizedBox(height: 8),
-                    _infoRow('Compagnie', _info!.compagnie),
-                    _infoRow('Nom', _info!.nom),
-                    _infoRow('Véhicule', _info!.marque),
-                    _infoRow('Police', _info!.police),
-                    _infoRow('Début', _info!.debut),
-                  ],
-                ),
-              ),
-          ],
-        ),
+        child: content,
       ),
     );
   }

@@ -27,6 +27,118 @@ class StoreService {
   static User? get currentUser => FirebaseAuth.instance.currentUser;
   static bool get isLoggedIn => currentUser != null;
 
+  // --- Authentification téléphone/SMS (méthode principale) ---
+  // L'email/mot de passe reste disponible en secours (voir signUp/signIn
+  // plus bas) pour ne pas bloquer un compte si un SMS tarde à arriver.
+
+  /// Lance l'envoi du code SMS vers [phoneNumber] (format international,
+  /// ex: "+213556653220"). [onCodeSent] reçoit l'id de vérification à
+  /// fournir ensuite à [confirmPhoneCode]. [onAutoVerified] est appelé si
+  /// Android confirme le numéro tout seul (sans saisie du code) — rare
+  /// mais possible sur certains appareils.
+  static Future<void> startPhoneVerification({
+    required String phoneNumber,
+    required void Function(String verificationId) onCodeSent,
+    required void Function(String message) onError,
+    required void Function() onAutoVerified,
+  }) async {
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      timeout: const Duration(seconds: 60),
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        try {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+          await _ensureProfileAfterPhoneAuth();
+          onAutoVerified();
+        } catch (e) {
+          onError('$e');
+        }
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        onError(_messageErreurTelephone(e));
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        onCodeSent(verificationId);
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        onCodeSent(verificationId);
+      },
+    );
+  }
+
+  static String _messageErreurTelephone(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-phone-number':
+        return 'Numéro invalide. Vérifie le format (ex: 0556 65 32 20).';
+      case 'too-many-requests':
+        return 'Trop de tentatives. Réessaie plus tard, ou utilise l\'email.';
+      case 'quota-exceeded':
+        return 'Service SMS temporairement indisponible. '
+            'Utilise la connexion par email en attendant.';
+      default:
+        return e.message ?? 'Erreur d\'envoi du SMS.';
+    }
+  }
+
+  /// Valide le code reçu par SMS et connecte (ou crée) le compte magasin.
+  /// Retourne true si c'est un nouveau compte : l'écran appelant doit
+  /// alors demander nom + adresse avant d'aller au tableau de bord.
+  static Future<bool> confirmPhoneCode({
+    required String verificationId,
+    required String smsCode,
+    bool rememberMe = true,
+  }) async {
+    final credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: smsCode,
+    );
+    await FirebaseAuth.instance.signInWithCredential(credential);
+    await _saveRememberMe(rememberMe);
+    final isNouveau = await _ensureProfileAfterPhoneAuth();
+    final uid = currentUser?.uid;
+    if (uid != null) await _registerFcmToken(uid);
+    return isNouveau;
+  }
+
+  /// Crée un profil minimal si c'est la première connexion par téléphone
+  /// (comme pour Google) : `actif: false` en attendant validation
+  /// manuelle. Retourne true si un profil a été créé (nouveau compte).
+  static Future<bool> _ensureProfileAfterPhoneAuth() async {
+    final uid = currentUser?.uid;
+    if (uid == null) return false;
+    final docRef =
+        FirebaseFirestore.instance.collection(_storesCollection).doc(uid);
+    final doc = await docRef.get();
+    if (doc.exists) return false;
+    final profile = StoreProfile(
+      uid: uid,
+      nom: '',
+      tel: currentUser?.phoneNumber ?? '',
+      adresse: '',
+      actif: false,
+      subscriptionStatus: SubscriptionStatus.essai,
+      trialEndDate:
+          DateTime.now().add(const Duration(days: kEssaiGratuitJours)),
+    );
+    await docRef.set(profile.toMap());
+    return true;
+  }
+
+  /// Complète le profil (nom, adresse) juste après une première
+  /// connexion par téléphone — le compte existe déjà (créé par
+  /// [_ensureProfileAfterPhoneAuth]), on ne fait que mettre à jour.
+  static Future<void> completerProfilApresTelephone({
+    required String nom,
+    required String adresse,
+  }) async {
+    final uid = currentUser?.uid;
+    if (uid == null) throw Exception('Non connecté.');
+    await FirebaseFirestore.instance
+        .collection(_storesCollection)
+        .doc(uid)
+        .update({'nom': nom, 'adresse': adresse});
+  }
+
   static Future<void> signUp({
     required String email,
     required String password,

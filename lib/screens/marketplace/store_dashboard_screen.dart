@@ -1,8 +1,9 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/marketplace_models.dart';
 import '../../services/store_service.dart';
-import 'store_login_screen.dart';
+import 'store_phone_login_screen.dart';
 import 'subscription_screen.dart';
 
 class StoreDashboardScreen extends StatefulWidget {
@@ -14,12 +15,35 @@ class StoreDashboardScreen extends StatefulWidget {
 }
 
 class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
+  final _player = AudioPlayer();
+  String? _noteVocaleEnCours; // url en cours de lecture, pour l'icône
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _ecouterNoteVocale(String url) async {
+    if (_noteVocaleEnCours == url) {
+      await _player.stop();
+      setState(() => _noteVocaleEnCours = null);
+      return;
+    }
+    setState(() => _noteVocaleEnCours = url);
+    await _player.play(UrlSource(url));
+    _player.onPlayerComplete.first.then((_) {
+      if (mounted) setState(() => _noteVocaleEnCours = null);
+    });
+  }
+
   Future<void> _logout() async {
     await StoreService.signOut();
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => StoreLoginScreen(config: widget.config)),
+      MaterialPageRoute(
+          builder: (_) => StorePhoneLoginScreen(config: widget.config)),
     );
   }
 
@@ -223,11 +247,36 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                                 )
                                               : const Icon(Icons.build),
                                           title: Text(r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom),
-                                          subtitle: Text(
-                                            r.reference.isNotEmpty
-                                                ? 'Réf: ${r.reference}'
-                                                : (r.compatibilite.isNotEmpty ? r.compatibilite.join(', ') : ''),
-                                            style: const TextStyle(fontSize: 12),
+                                          subtitle: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  r.reference.isNotEmpty
+                                                      ? 'Réf: ${r.reference}'
+                                                      : (r.compatibilite.isNotEmpty ? r.compatibilite.join(', ') : ''),
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                              if (r.aUneNoteVocale)
+                                                InkWell(
+                                                  onTap: () => _ecouterNoteVocale(
+                                                      r.noteVocaleUrl!),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(4),
+                                                    child: Icon(
+                                                      _noteVocaleEnCours ==
+                                                              r.noteVocaleUrl
+                                                          ? Icons.pause_circle
+                                                          : Icons
+                                                              .play_circle_outline,
+                                                      size: 20,
+                                                      color: widget
+                                                          .config.primaryColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                           trailing: FilledButton(
                                             onPressed: () => _repondre(r),

@@ -34,13 +34,15 @@ class MarketplaceService {
   static String? get clientId => FirebaseAuth.instance.currentUser?.uid;
 
   /// Diffuse une demande de pièce à tous les magasins actifs.
-  /// Upload la photo sur Firebase Storage puis crée le document Firestore.
-  /// Un Cloud Function (voir /functions) notifie les magasins par push.
+  /// Upload la photo (et la note vocale si fournie) puis crée le
+  /// document Firestore. Un Cloud Function (voir /functions) notifie
+  /// les magasins par push.
   static Future<String> broadcastRequest({
     required File photo,
     required String pieceNom,
     required String reference,
     required List<String> compatibilite,
+    File? noteVocale,
   }) async {
     final uid = await ensureSignedIn();
     final id = FirebaseFirestore.instance.collection(_requestsCollection).doc().id;
@@ -50,6 +52,21 @@ class MarketplaceService {
       folder: 'part_requests',
     );
 
+    String? noteVocaleUrl;
+    if (noteVocale != null) {
+      // La note vocale est un ajout de confort : si son upload échoue
+      // (réseau, format), on n'annule pas la demande pour autant — la
+      // photo seule suffit pour que le magasin réponde.
+      try {
+        noteVocaleUrl = await CloudinaryService.uploadAudio(
+          noteVocale,
+          folder: 'part_requests_audio',
+        );
+      } catch (_) {
+        noteVocaleUrl = null;
+      }
+    }
+
     final request = PartRequest(
       id: id,
       clientId: uid,
@@ -57,6 +74,7 @@ class MarketplaceService {
       reference: reference,
       compatibilite: compatibilite,
       photoUrl: photoUrl,
+      noteVocaleUrl: noteVocaleUrl,
       statut: 'open',
       dateCreation: DateTime.now(),
     );

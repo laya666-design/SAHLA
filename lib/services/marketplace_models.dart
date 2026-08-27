@@ -8,6 +8,10 @@ class PartRequest {
   final String reference;
   final List<String> compatibilite;
   final String photoUrl;
+  // Note vocale optionnelle enregistrée avec la photo, pour préciser au
+  // magasin un détail que la photo seule ne montre pas (côté gauche/droit,
+  // version moteur exacte...). Null si le client n'a pas enregistré de note.
+  final String? noteVocaleUrl;
   final String statut; // 'open' | 'vendu' | 'closed'
   final DateTime dateCreation;
   final String? soldToStoreId;
@@ -21,6 +25,7 @@ class PartRequest {
     required this.reference,
     required this.compatibilite,
     required this.photoUrl,
+    this.noteVocaleUrl,
     required this.statut,
     required this.dateCreation,
     this.soldToStoreId,
@@ -30,6 +35,8 @@ class PartRequest {
 
   bool get estVendue => statut == 'vendu';
   bool get estOuverte => statut == 'open';
+  bool get aUneNoteVocale =>
+      noteVocaleUrl != null && noteVocaleUrl!.isNotEmpty;
 
   factory PartRequest.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
@@ -43,6 +50,7 @@ class PartRequest {
               .toList() ??
           const [],
       photoUrl: d['photoUrl']?.toString() ?? '',
+      noteVocaleUrl: d['noteVocaleUrl']?.toString(),
       statut: d['statut']?.toString() ?? 'open',
       dateCreation: (d['dateCreation'] as Timestamp?)?.toDate() ??
           DateTime.now(),
@@ -58,6 +66,7 @@ class PartRequest {
         'reference': reference,
         'compatibilite': compatibilite,
         'photoUrl': photoUrl,
+        if (noteVocaleUrl != null) 'noteVocaleUrl': noteVocaleUrl,
         'statut': statut,
         'dateCreation': FieldValue.serverTimestamp(),
       };

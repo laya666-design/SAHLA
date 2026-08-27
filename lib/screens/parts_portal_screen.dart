@@ -4,6 +4,7 @@ import '../services/store_service.dart';
 import 'buyer_portal_screen.dart';
 import 'marketplace/store_dashboard_screen.dart';
 import 'marketplace/store_login_screen.dart';
+import 'marketplace/store_phone_login_screen.dart';
 
 /// Entrée de l'onglet "Pièces" : deux branches distinctes.
 /// - Portail acheteur : accessible à tous les clients (scan photo + suivi
@@ -66,7 +67,7 @@ class PartsPortalScreen extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (_) => StoreService.isLoggedIn
                       ? StoreDashboardScreen(config: config)
-                      : StoreLoginScreen(config: config),
+                      : StorePhoneLoginScreen(config: config),
                 ),
               ),
             ),

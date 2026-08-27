@@ -1,130 +1,134 @@
 import 'package:flutter/material.dart';
+import '../config/app_config.dart';
 
-/// Palette et thème visuels de l'application — un seul point de vérité
-/// pour les couleurs, la typographie et le style des composants. Les
-/// écrans doivent utiliser ces tokens plutôt que des couleurs codées en
-/// dur (Colors.red, Colors.black54, config.primaryColor...).
+/// Palette et thème visuels VROUM23 — thème sombre. Un seul point de
+/// vérité pour les couleurs ; les écrans doivent utiliser ces tokens
+/// plutôt que des couleurs codées en dur.
 class AppColors {
   AppColors._();
 
-  // Marque — bleu/indigo moderne (confiance, tech). Ne pas changer sans
-  // mettre à jour aussi l'icône de l'app / le splash screen.
-  static const primary = Color(0xFF4F46E5);
-  static const primaryDark = Color(0xFF3730A3);
-  static const primaryLight = Color(0xFFEEF2FF);
+  // Marque — vert VROUM23. Ne pas changer sans mettre à jour aussi
+  // l'icône de l'app / le splash screen.
+  static const primary = Color(0xFF22C55E);
+  static const primaryDark = Color(0xFF16A34A);
+  static const primaryLight = Color(0xFF14301F);
 
-  // Neutres
-  static const background = Color(0xFFF6F7FB);
-  static const surface = Colors.white;
-  static const border = Color(0xFFE7E8F0);
+  // États métier — indépendants de la couleur de marque.
+  static const enchere = Color(0xFFF97316); // orange — enchères/offres
+  static const sos = Color(0xFFEF4444); // rouge — alertes/SOS/expiré
+
+  // Fond sombre
+  static const background = Color(0xFF0A0A0A);
+  static const surface = Color(0xFF1A1A1A);
+  static const border = Color(0xFF2A2A2A);
 
   // Texte
-  static const textPrimary = Color(0xFF191A23);
-  static const textSecondary = Color(0xFF6B6D7C);
-  static const textMuted = Color(0xFFA0A2B0);
+  static const textPrimary = Color(0xFFF5F5F5);
+  static const textSecondary = Color(0xFFA3A3A3);
+  static const textMuted = Color(0xFF6B6B6B);
 
-  // États — indépendants de la couleur de marque : ne pas les faire
-  // dériver de primary (assurance/CT expirés doivent rester rouges
-  // même si la marque devient bleue).
-  static const success = Color(0xFF166534);
-  static const successLight = Color(0xFFDCFCE7);
-  static const warning = Color(0xFF92400E);
-  static const warningLight = Color(0xFFFEF3C7);
-  static const error = Color(0xFFDC2626);
-  static const errorText = Color(0xFF991B1B);
-  static const errorLight = Color(0xFFFEE2E2);
+  // États (assurance/CT/entretien) — vert/orange/rouge, indépendants de
+  // la couleur de marque pour rester lisibles même si la marque change.
+  static const success = primary;
+  static const successBg = Color(0xFF14301F);
+  static const warning = enchere;
+  static const warningBg = Color(0xFF3A2410);
+  static const error = sos;
+  static const errorBg = Color(0xFF3A1414);
 }
 
 class AppTheme {
   AppTheme._();
 
-  /// Forme standard des Card : coins arrondis, sans bordure — l'ombre
-  /// (portée par CardThemeData) fait le relief à la place.
   static ShapeBorder get cardShape => RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       );
 
-  static ThemeData get light {
+  /// Thème sombre VROUM23. [config] permet de garder la couleur de marque
+  /// pilotée depuis AppConfig plutôt que dupliquée ici.
+  static ThemeData dark(AppConfig config) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
-      brightness: Brightness.light,
+      seedColor: config.primaryColor,
+      brightness: Brightness.dark,
     ).copyWith(
-      primary: AppColors.primary,
-      onPrimary: Colors.white,
-      secondary: AppColors.primaryDark,
-      error: AppColors.error,
+      primary: config.primaryColor,
+      onPrimary: Colors.black,
+      secondary: config.enchereColor,
+      error: config.sosColor,
       surface: AppColors.surface,
       onSurface: AppColors.textPrimary,
     );
 
     final base = ThemeData(
       useMaterial3: true,
+      brightness: Brightness.dark,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.background,
     );
 
     return base.copyWith(
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
-          color: Colors.white,
+          color: AppColors.textPrimary,
           fontSize: 19,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.2,
         ),
       ),
 
-      // Nouveau : cartes Material 3 avec ombre douce plutôt que bordure.
       cardTheme: CardThemeData(
         color: AppColors.surface,
-        elevation: 3,
-        shadowColor: AppColors.primary.withValues(alpha: 0.12),
+        elevation: 0,
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.border, width: 1),
         ),
       ),
 
-      textTheme: base.textTheme.apply(
-        bodyColor: AppColors.textPrimary,
-        displayColor: AppColors.textPrimary,
-      ).copyWith(
-        headlineSmall: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.4,
-          color: AppColors.textPrimary,
-        ),
-        titleLarge: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-        ),
-        titleMedium: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-        ),
-        bodyMedium: const TextStyle(
-          fontSize: 14,
-          color: AppColors.textSecondary,
-          height: 1.4,
-        ),
-        bodySmall: const TextStyle(
-          fontSize: 12,
-          color: AppColors.textSecondary,
-        ),
-      ),
+      textTheme: base.textTheme
+          .apply(
+            bodyColor: AppColors.textPrimary,
+            displayColor: AppColors.textPrimary,
+          )
+          .copyWith(
+            headlineSmall: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              color: AppColors.textPrimary,
+            ),
+            titleLarge: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+            titleMedium: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+            bodyMedium: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+            bodySmall: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.35),
+          backgroundColor: config.primaryColor,
+          foregroundColor: Colors.black,
+          disabledBackgroundColor: config.primaryColor.withValues(alpha: 0.35),
           minimumSize: const Size.fromHeight(52),
           elevation: 0,
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
@@ -132,13 +136,10 @@ class AppTheme {
         ),
       ),
 
-      // Ajouté : sans ça, FilledButton (utilisé dans les dialogues —
-      // "Ajouter", "Enregistrer", "Confirmer"...) garde la forme "pilule"
-      // par défaut de Material 3, incohérente avec les autres boutons.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: config.primaryColor,
+          foregroundColor: Colors.black,
           minimumSize: const Size.fromHeight(52),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -157,26 +158,26 @@ class AppTheme {
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          foregroundColor: config.primaryColor,
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.background,
+        fillColor: AppColors.surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
+          borderSide: BorderSide(color: config.primaryColor, width: 1.6),
         ),
         labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
         prefixIconColor: AppColors.textMuted,
@@ -193,22 +194,25 @@ class AppTheme {
       dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1),
 
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.textPrimary,
-        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13.5),
+        backgroundColor: AppColors.surface,
+        contentTextStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 13.5),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border),
+        ),
       ),
 
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.surface,
-        indicatorColor: AppColors.primary.withValues(alpha: 0.12),
+        indicatorColor: config.primaryColor.withValues(alpha: 0.18),
         elevation: 0,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             fontSize: 11,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? AppColors.primary : AppColors.textMuted,
+            color: selected ? config.primaryColor : AppColors.textMuted,
           );
         }),
       ),

@@ -4,6 +4,7 @@ import '../services/ocr_service.dart';
 import '../services/vehicule.dart';
 import '../services/vehicule_service.dart';
 import '../widgets/ad_banner.dart';
+import 'carte_grise_screen.dart';
 import 'controle_technique_screen.dart';
 import 'insurance_screen.dart';
 
@@ -88,6 +89,78 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
       default:
         return _t('Voiture', 'سيارة');
     }
+  }
+
+  /// Remplace l'ancien formulaire texte (nom/marque saisis à la main) :
+  /// on choisit le type puis on scanne la carte grise, qui crée
+  /// directement la fiche véhicule avec les infos détectées.
+  Future<void> _ajouterVehiculeViaScan() async {
+    final isPremium = SettingsService.isPremium;
+    final canAddFree = VehiculeService.canAddFreeForTypes(widget.types);
+    if (!isPremium && !canAddFree) {
+      _showPremiumSheet();
+      return;
+    }
+
+    String selectedType = widget.types.first;
+
+    if (widget.types.length > 1) {
+      final chosen = await showDialog<String>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: Text(_t('Quel type de véhicule ?', 'ما نوع المركبة؟')),
+            content: SegmentedButton<String>(
+              segments: widget.types
+                  .map((t) => ButtonSegment<String>(
+                        value: t,
+                        label: Text(_labelForType(t)),
+                        icon: Icon(_iconForType(t)),
+                      ))
+                  .toList(),
+              selected: {selectedType},
+              onSelectionChanged: (s) =>
+                  setDialogState(() => selectedType = s.first),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(_t('Annuler', 'إلغاء')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, selectedType),
+                child: Text(_t('Continuer', 'متابعة')),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (chosen == null) return;
+      selectedType = chosen;
+    }
+
+    if (!mounted) return;
+    final cree = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            backgroundColor: widget.config.primaryColor,
+            foregroundColor: Colors.white,
+            title: Text(_t('Ajouter un véhicule', 'إضافة مركبة')),
+          ),
+          body: CarteGriseScreen(
+            config: widget.config,
+            typeVehicule: selectedType,
+            onVehiculeCree: (_) {
+              if (Navigator.canPop(context)) Navigator.pop(context, true);
+            },
+          ),
+        ),
+      ),
+    );
+
+    if (cree == true) _refresh();
   }
 
   /// Dialogue partagé pour l'ajout ET la modification d'un véhicule.
@@ -304,33 +377,73 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     );
   }
 
+  Widget _sectionHeader(IconData icon, String titre) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: widget.config.primaryColor, size: 20),
+          const SizedBox(width: 8),
+          Text(titre,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openVehicle(Vehicule v) async {
+    // Carte Grise Magic n'a de sens que pour identifier un moteur ->
+    // affichée uniquement pour les voitures (pas motos/scooters).
+    final showCarteGrise = v.type == TypeVehicule.voiture;
+
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => DefaultTabController(
-          length: 2,
-          child: Scaffold(
-            appBar: AppBar(
-              backgroundColor: widget.config.primaryColor,
-              foregroundColor: Colors.white,
-              title: Text(v.nom),
-              bottom: TabBar(
-                indicatorColor: Colors.white,
-                tabs: [
-                  Tab(
-                      icon: const Icon(Icons.security),
-                      text: _t('Assurance', 'التأمين')),
-                  Tab(
-                      icon: const Icon(Icons.fact_check),
-                      text: _t('Contrôle technique', 'الفحص التقني')),
-                ],
-              ),
-            ),
-            body: TabBarView(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            backgroundColor: widget.config.primaryColor,
+            foregroundColor: Colors.white,
+            title: Text(v.nom),
+          ),
+          // Une seule page, 3 sections dans l'ordre logique (identité du
+          // véhicule d'abord, puis les deux documents à renouveler) —
+          // plus d'onglets : chaque section reste accessible à tout
+          // moment, sans parcours forcé, pour re-scanner plus tard
+          // (ex: renouvellement de l'assurance l'année suivante).
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
               children: [
-                InsuranceScreen(config: widget.config, vehicule: v),
-                ControleTechniqueScreen(config: widget.config, vehicule: v),
+                if (showCarteGrise) ...[
+                  _sectionHeader(Icons.badge, _t('Carte Grise', 'البطاقة الرمادية')),
+                  CarteGriseScreen(
+                    config: widget.config,
+                    vehicule: v,
+                    embedded: true,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Divider(),
+                  ),
+                ],
+                _sectionHeader(Icons.security, _t('Assurance', 'التأمين')),
+                InsuranceScreen(
+                  config: widget.config,
+                  vehicule: v,
+                  embedded: true,
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Divider(),
+                ),
+                _sectionHeader(
+                    Icons.fact_check, _t('Contrôle technique', 'الفحص التقني')),
+                ControleTechniqueScreen(
+                  config: widget.config,
+                  vehicule: v,
+                  embedded: true,
+                ),
               ],
             ),
           ),
@@ -498,7 +611,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => _openVehicleFormDialog(),
+                  onPressed: _ajouterVehiculeViaScan,
                   icon: const Icon(Icons.add),
                   label: Text(_labelAjout),
                   style: OutlinedButton.styleFrom(

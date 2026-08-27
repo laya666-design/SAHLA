@@ -4,6 +4,7 @@ import '../../config/app_config.dart';
 import '../../services/store_service.dart';
 import 'store_dashboard_screen.dart';
 import 'store_forgot_password_screen.dart';
+import 'store_phone_login_screen.dart';
 import 'store_signup_screen.dart';
 
 class StoreLoginScreen extends StatefulWidget {
@@ -148,6 +149,16 @@ class _StoreLoginScreenState extends State<StoreLoginScreen> {
                   ),
                 ),
                 child: const Text('Créer un compte magasin'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        StorePhoneLoginScreen(config: widget.config),
+                  ),
+                ),
+                child: const Text('Utiliser le téléphone à la place'),
               ),
             ],
           ),

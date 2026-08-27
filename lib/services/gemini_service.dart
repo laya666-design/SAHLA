@@ -128,12 +128,68 @@ REGLE: ne jamais inventer d informations non visibles sur l image.
     }
   }
 
-  Future<Map<String, dynamic>> analyzeCarPart(File file) async {
+  /// Analyse une photo de carte grise algérienne (jaune) : extrait les
+  /// champs officiels (type, année, châssis, puissance) puis déduit le
+  /// code moteur et le carburant pour alimenter la compatibilité pièces
+  /// (voir Vehicule.engineCode / fuelType).
+  Future<Map<String, dynamic>> analyzeCarteGrise(File file) async {
     try {
+      final prompt = '''
+Tu es un expert en cartes grises automobiles algeriennes.
+REGLE CRITIQUE: Ne jamais inventer une information non visible sur l image.
+Si un champ n est pas lisible, mets null.
+Analyse cette photo de carte grise (carte jaune) algerienne et extrait les
+champs officiels, puis deduis le code moteur et le type de carburant a
+partir de la marque/modele/type/puissance fiscale (connaissance generale
+du marche automobile, pas invente au hasard).
+Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
+
+{
+  "marque": "string ou null",
+  "modele": "string ou null",
+  "type": "string ou null",
+  "annee": "aaaa ou null",
+  "chassis": "string ou null",
+  "puissance_fiscale": "string ou null",
+  "immatriculation": "string ou null",
+  "engine_code": "ex K9K, deduit ou null si incertain",
+  "fuel_type": "diesel, essence ou gpl, deduit ou null si incertain"
+}
+''';
+
+      final raw = await _callGroq(prompt, file);
+      final json = _parseJson(raw);
+      json.remove('magasins');
+      return json;
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  /// [vehicleContext] optionnel : résumé véhicule (ex: "Renault Clio 4 · K9K
+  /// · diesel") issu de la carte grise scannée. Quand renseigné, Gemini
+  /// identifie la piece en connaissant deja le moteur/la motorisation
+  /// au lieu de deviner uniquement sur la photo — moins d ambiguite sur
+  /// la reference et la compatibilite.
+  Future<Map<String, dynamic>> analyzeCarPart(
+    File file, {
+    String vehicleContext = '',
+  }) async {
+    try {
+      final contexteVehicule = vehicleContext.trim().isEmpty
+          ? ''
+          : '''
+Contexte vehicule connu (issu de la carte grise scannee par l utilisateur,
+fiable, ne pas ignorer) : $vehicleContext
+Utilise ce contexte pour affiner la reference exacte et la compatibilite,
+plutot que de deviner uniquement a partir de la photo.
+''';
+
       final prompt = '''
 Tu es un expert pieces auto pour l Algerie (Annaba).
 REGLE CRITIQUE: Ne jamais inventer de nom de magasin, adresse ou telephone.
 Identifie la piece auto sur la photo pour le marche Algerien.
+$contexteVehicule
 Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
 
 {

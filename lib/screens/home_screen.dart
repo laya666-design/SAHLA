@@ -49,15 +49,27 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Scaffold(
             appBar: AppBar(
               backgroundColor: widget.config.primaryColor,
-              foregroundColor: Colors.white,
-              title: Text(widget.config.appName),
+              foregroundColor: Colors.black,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(widget.config.appName,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    widget.config.slogan,
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
               actions: [
                 TextButton(
                   onPressed: () => widget.isAr.value = !isAr,
                   child: Text(
                     isAr ? 'FR' : 'AR',
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
+                        color: Colors.black, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],

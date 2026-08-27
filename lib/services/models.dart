@@ -49,6 +49,50 @@ class ControleTechniqueInfo {
   }
 }
 
+/// Résultat du scan d'une carte grise algérienne (jaune), avec déduction
+/// du code moteur / carburant pour alimenter la compatibilité pièces.
+class CarteGriseInfo {
+  final String marque;
+  final String modele;
+  final String type; // "type" tel qu'imprimé sur la carte grise
+  final int? annee;
+  final String chassis;
+  final String puissanceFiscale;
+  final String immatriculation;
+  final String engineCode; // déduit, ex: "K9K"
+  final String fuelType; // déduit, ex: "diesel"
+
+  CarteGriseInfo({
+    this.marque = '',
+    this.modele = '',
+    this.type = '',
+    this.annee,
+    this.chassis = '',
+    this.puissanceFiscale = '',
+    this.immatriculation = '',
+    this.engineCode = '',
+    this.fuelType = '',
+  });
+
+  factory CarteGriseInfo.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return CarteGriseInfo();
+    return CarteGriseInfo(
+      marque: json['marque']?.toString() ?? '',
+      modele: json['modele']?.toString() ?? '',
+      type: json['type']?.toString() ?? '',
+      annee: int.tryParse(json['annee']?.toString() ?? ''),
+      chassis: json['chassis']?.toString() ?? '',
+      puissanceFiscale: json['puissance_fiscale']?.toString() ?? '',
+      immatriculation: json['immatriculation']?.toString() ?? '',
+      engineCode: json['engine_code']?.toString() ?? '',
+      fuelType: json['fuel_type']?.toString() ?? '',
+    );
+  }
+
+  bool get estVide =>
+      marque.isEmpty && modele.isEmpty && chassis.isEmpty && annee == null;
+}
+
 class StoreOffer {
   final String nom;
   final num prix;

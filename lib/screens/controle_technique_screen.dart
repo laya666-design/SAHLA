@@ -14,10 +14,17 @@ class ControleTechniqueScreen extends StatefulWidget {
   final AppConfig config;
   final Vehicule? vehicule;
 
+  /// true quand ce widget est empilé dans la fiche véhicule à 3 sections
+  /// (Carte Grise / Assurance / Contrôle technique) plutôt qu'affiché seul
+  /// dans son propre onglet : supprime le titre et le SafeArea/scroll
+  /// propres, qui sont alors gérés par la fiche véhicule englobante.
+  final bool embedded;
+
   const ControleTechniqueScreen({
     super.key,
     required this.config,
     this.vehicule,
+    this.embedded = false,
   });
 
   @override
@@ -142,106 +149,112 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!widget.embedded) ...[
+          Text(
+            widget.vehicule != null
+                ? 'Contrôle technique — ${widget.vehicule!.nom}'
+                : 'Contrôle technique',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Photographie l\'attestation de contrôle technique pour '
+            'calculer les jours restants avant le prochain passage.',
+            style: TextStyle(color: Colors.black54),
+          ),
+          const SizedBox(height: 16),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed:
+                    _loading ? null : () => _pickImage(ImageSource.camera),
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('Caméra'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  backgroundColor: widget.config.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed:
+                    _loading ? null : () => _pickImage(ImageSource.gallery),
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Galerie'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        if (_image != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(_image!, height: 180, fit: BoxFit.cover),
+          ),
+        const SizedBox(height: 16),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        if (_error != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEE2E2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(_error!,
+                style: const TextStyle(color: Color(0xFF991B1B))),
+          ),
+        if (_status != null) ...[
+          StatusCard(status: _status!),
+          const SizedBox(height: 16),
+        ],
+        if (_info != null &&
+            (_info!.centre.isNotEmpty ||
+                _info!.numero.isNotEmpty ||
+                _info!.kilometrage.isNotEmpty))
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Détails',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
+                _infoRow('Centre', _info!.centre),
+                _infoRow('Numéro', _info!.numero),
+                _infoRow('Kilométrage', _info!.kilometrage),
+              ],
+            ),
+          ),
+      ],
+    );
+
+    if (widget.embedded) return content;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.vehicule != null
-                  ? 'Contrôle technique — ${widget.vehicule!.nom}'
-                  : 'Contrôle technique',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Photographie l\'attestation de contrôle technique pour '
-              'calculer les jours restants avant le prochain passage.',
-              style: TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        _loading ? null : () => _pickImage(ImageSource.camera),
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Caméra'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
-                      backgroundColor: widget.config.primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed:
-                        _loading ? null : () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library),
-                    label: const Text('Galerie'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (_image != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(_image!, height: 180, fit: BoxFit.cover),
-              ),
-            const SizedBox(height: 16),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            if (_error != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(_error!,
-                    style: const TextStyle(color: Color(0xFF991B1B))),
-              ),
-            if (_status != null) ...[
-              StatusCard(status: _status!),
-              const SizedBox(height: 16),
-            ],
-            if (_info != null &&
-                (_info!.centre.isNotEmpty ||
-                    _info!.numero.isNotEmpty ||
-                    _info!.kilometrage.isNotEmpty))
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Détails',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15)),
-                    const SizedBox(height: 8),
-                    _infoRow('Centre', _info!.centre),
-                    _infoRow('Numéro', _info!.numero),
-                    _infoRow('Kilométrage', _info!.kilometrage),
-                  ],
-                ),
-              ),
-          ],
-        ),
+        child: content,
       ),
     );
   }

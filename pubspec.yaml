@@ -30,7 +30,7 @@ dependencies:
   image_picker: ^0.8.7+5
   # Note vocale sur le scanner pièce : enregistrement (record) et
   # lecture côté magasin (audioplayers).
-  record: ^6.1.0
+  record: ^5.1.2
   audioplayers: ^6.1.0
   path_provider: ^2.1.4
   url_launcher: ^6.1.14

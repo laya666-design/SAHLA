@@ -4,24 +4,30 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'cloudinary_service.dart';
 import 'marketplace_models.dart';
 
-/// Marketplace pièces — côté demandeur (client).
+/// Marketplace pièces — côté demandeur (client / acheteur).
 ///
-/// Nécessite Firestore + Firebase Storage (Phase 4). Le client n'a pas de
-/// compte visible (pas d'écran de connexion), mais utilise en coulisses
-/// une connexion Firebase anonyme : c'est cet uid anonyme qui sert
-/// d'identifiant de propriétaire (`clientId`) sur ses demandes, vérifié
-/// par les règles Firestore. Avant ce correctif, le clientId était un ID
-/// généré localement (donc lisible/imitable par n'importe qui, vu que
-/// les demandes sont en lecture publique) : n'importe qui pouvait clôturer
-/// ou marquer "vendue" la demande d'un autre client. La connexion
-/// anonyme Firebase corrige ça : impossible de forger l'uid de
-/// quelqu'un d'autre.
+/// L'acheteur peut se connecter par téléphone/SMS (méthode principale,
+/// comme le magasin) pour retrouver ses demandes sur un autre appareil.
+/// Sans connexion, une session Firebase anonyme est créée en coulisses :
+/// l'uid sert d'identifiant de propriétaire (`clientId`) sur ses
+/// demandes. La connexion anonyme empêche de forger l'uid d'un autre
+/// client.
 class MarketplaceService {
   static const _requestsCollection = 'part_requests';
 
-  /// Garantit que le client a une session Firebase (anonyme) active et
-  /// retourne son uid. À appeler avant toute lecture/écriture liée au
-  /// client (créer une demande, lister "mes demandes", clôturer...).
+  static User? get currentUser => FirebaseAuth.instance.currentUser;
+
+  /// Connecté avec un numéro de téléphone (pas anonyme).
+  static bool get isPhoneLoggedIn {
+    final user = currentUser;
+    return user != null &&
+        !user.isAnonymous &&
+        (user.phoneNumber != null && user.phoneNumber!.isNotEmpty);
+  }
+
+  /// Garantit que le client a une session Firebase active et retourne
+  /// son uid. Si déjà connecté (téléphone ou autre), on réutilise la
+  /// session ; sinon connexion anonyme.
   static Future<String> ensureSignedIn() async {
     var user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -32,6 +38,68 @@ class MarketplaceService {
   }
 
   static String? get clientId => FirebaseAuth.instance.currentUser?.uid;
+
+  // --- Authentification téléphone/SMS (acheteur) ---
+
+  /// Lance l'envoi du code SMS. [phoneNumber] au format international
+  /// (ex: "+213556653220").
+  static Future<void> startPhoneVerification({
+    required String phoneNumber,
+    required void Function(String verificationId) onCodeSent,
+    required void Function(String message) onError,
+    required void Function() onAutoVerified,
+  }) async {
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      timeout: const Duration(seconds: 60),
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        try {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+          onAutoVerified();
+        } catch (e) {
+          onError('$e');
+        }
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        onError(_messageErreurTelephone(e));
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        onCodeSent(verificationId);
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        onCodeSent(verificationId);
+      },
+    );
+  }
+
+  static String _messageErreurTelephone(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-phone-number':
+        return 'Numéro invalide. Vérifie le format (ex: 0556 65 32 20).';
+      case 'too-many-requests':
+        return 'Trop de tentatives. Réessaie plus tard.';
+      case 'quota-exceeded':
+        return 'Service SMS temporairement indisponible. Réessaie plus tard.';
+      default:
+        return e.message ?? 'Erreur d\'envoi du SMS.';
+    }
+  }
+
+  /// Valide le code SMS et connecte l'acheteur (crée le compte Auth
+  /// s'il n'existait pas encore). Pas de profil magasin : l'uid sert
+  /// uniquement de clientId pour les demandes.
+  static Future<void> confirmPhoneCode({
+    required String verificationId,
+    required String smsCode,
+  }) async {
+    final credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: smsCode,
+    );
+    await FirebaseAuth.instance.signInWithCredential(credential);
+  }
+
+  static Future<void> signOut() => FirebaseAuth.instance.signOut();
 
   /// Diffuse une demande de pièce à tous les magasins actifs.
   /// Upload la photo (et la note vocale si fournie) puis crée le

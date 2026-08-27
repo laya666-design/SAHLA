@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
+import '../services/marketplace_service.dart';
 import '../services/store_service.dart';
 import 'buyer_portal_screen.dart';
+import 'marketplace/buyer_phone_login_screen.dart';
 import 'marketplace/store_dashboard_screen.dart';
-import 'marketplace/store_login_screen.dart';
 import 'marketplace/store_phone_login_screen.dart';
 
 /// Entrée de l'onglet "Pièces" : deux branches distinctes.
-/// - Portail acheteur : accessible à tous les clients (scan photo + suivi
-///   de "Mes demandes").
+/// - Portail acheteur : connexion téléphone (recommandée) ou anonyme,
+///   scan photo + suivi de "Mes demandes".
 /// - Portail vendeur (Espace magasin) : réservé aux magasins, protégé par
-///   un compte (email/mot de passe, chaque magasin a son propre ID dans
-///   l'app). Un client sans compte magasin ne peut jamais y entrer.
+///   un compte. Un client sans compte magasin ne peut jamais y entrer.
 class PartsPortalScreen extends StatelessWidget {
   final AppConfig config;
   final bool isAr;
@@ -48,7 +48,9 @@ class PartsPortalScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => BuyerPortalScreen(config: config, isAr: isAr),
+                  builder: (_) => MarketplaceService.isPhoneLoggedIn
+                      ? BuyerPortalScreen(config: config, isAr: isAr)
+                      : BuyerPhoneLoginScreen(config: config, isAr: isAr),
                 ),
               ),
             ),
@@ -127,9 +129,12 @@ class _PortalCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                  Text(subtitle,
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.black54)),
                 ],
               ),
             ),

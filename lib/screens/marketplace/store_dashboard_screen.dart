@@ -230,6 +230,39 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                   if (snapshot.connectionState == ConnectionState.waiting) {
                                     return const Center(child: CircularProgressIndicator());
                                   }
+                                  // Avant : une erreur ici (index Firestore
+                                  // manquant, permission refusée, document
+                                  // malformé...) était silencieusement
+                                  // avalée et affichait juste "Aucune
+                                  // commande" — impossible à diagnostiquer.
+                                  // On affiche maintenant le vrai message.
+                                  if (snapshot.hasError) {
+                                    return Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(20),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.error_outline,
+                                                color: Colors.red, size: 36),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                              'Impossible de charger les commandes.',
+                                              style: TextStyle(fontWeight: FontWeight.w600),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            SelectableText(
+                                              '${snapshot.error}',
+                                              style: const TextStyle(
+                                                  fontSize: 12, color: Colors.black54),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
                                   final requests = snapshot.data ?? [];
                                   if (requests.isEmpty) {
                                     return const Center(child: Text('Aucune commande pour le moment.'));

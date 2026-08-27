@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/admin_service.dart';
-import 'admin_payments_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 /// Écran de connexion admin — accessible uniquement via l'appui long
 /// caché sur "À propos" dans l'onglet Profil (pas de bouton visible pour
@@ -43,7 +43,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => AdminPaymentsScreen(config: widget.config),
+          builder: (_) => AdminDashboardScreen(config: widget.config),
         ),
       );
     } on FirebaseAuthException catch (e) {

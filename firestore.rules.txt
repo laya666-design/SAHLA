@@ -2,79 +2,67 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Demandes de pièces : lecture publique (nécessaire pour que les
-    // magasins les voient sans compte dédié par demande), création et
-    // clôture réservées au client propriétaire (identifié par son uid
-    // Firebase anonyme — voir MarketplaceService.ensureSignedIn côté
-    // app), mise à jour limitée aux champs de clôture (fermer sa propre
-    // demande, ou la marquer vendue depuis "Mes demandes").
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Demandes de pièces
     match /part_requests/{requestId} {
       allow read: if true;
-      allow create: if request.auth != null
-                      && request.resource.data.clientId == request.auth.uid
-                      && request.resource.data.statut == 'open';
-      allow update: if request.auth != null
-                    && request.auth.uid == resource.data.clientId
-                    && request.resource.data.diff(resource.data)
-                        .affectedKeys()
-                        .hasOnly(['statut', 'soldToStoreId', 'soldToStoreNom', 'dateVente'])
-                    && request.resource.data.statut in ['closed', 'vendu'];
-      allow delete: if false;
+      allow create: if request.resource.data.statut == 'open';
+      allow update: if isAdmin()
+                    || (request.resource.data.diff(resource.data)
+                          .affectedKeys()
+                          .hasOnly(['statut', 'soldToStoreId', 'soldToStoreNom', 'dateVente'])
+                        && request.resource.data.statut in ['closed', 'vendu']);
+      allow delete: if isAdmin();
 
-      // Réponses des magasins : seul un magasin authentifié, à l'identité
-      // validée ET dont l'essai gratuit ou l'abonnement est toujours en
-      // cours, peut répondre — uniquement avec son propre uid comme id de
-      // document (empêche d'écraser la réponse d'un concurrent).
       match /offers/{offerId} {
         allow read: if true;
-        allow create, update: if request.auth != null
-                                && request.auth.uid == offerId
-                                && subscriptionValide(request.auth.uid);
-        allow delete: if false;
+        allow create, update: if isAdmin()
+                              || (request.auth != null
+                                  && request.auth.uid == offerId
+                                  && subscriptionValide(request.auth.uid));
+        allow delete: if isAdmin();
       }
     }
 
-    // Comptes magasins : un magasin ne voit/modifie que son propre
-    // profil, et ne peut jamais s'auto-activer ni modifier son propre
-    // statut d'abonnement (les champs "actif", "subscriptionStatus",
-    // "trialEndDate" et "subscriptionEndDate" ne peuvent changer que
-    // depuis la console Firebase / une Cloud Function admin — jamais via
-    // une requête client).
+    // Comptes magasins
     match /stores/{storeId} {
-      allow create: if request.auth != null
-                      && request.auth.uid == storeId
+      allow create: if isOwner(storeId)
                       && request.resource.data.actif == false
                       && request.resource.data.subscriptionStatus == 'essai';
-      allow read: if request.auth != null && request.auth.uid == storeId;
-      allow update: if request.auth != null
-                      && request.auth.uid == storeId
-                      && request.resource.data.actif == resource.data.actif
-                      && request.resource.data.subscriptionStatus
-                          == resource.data.subscriptionStatus
-                      && request.resource.data.trialEndDate
-                          == resource.data.trialEndDate
-                      && request.resource.data.get('subscriptionEndDate', null)
-                          == resource.data.get('subscriptionEndDate', null)
-                      && request.resource.data.get('currentPlanId', null)
-                          == resource.data.get('currentPlanId', null);
-      allow delete: if false;
+      // Admin lit tout ; le magasin ne lit que le sien
+      allow read: if isAdmin() || isOwner(storeId);
+      // Admin peut tout modifier (activation, abo, blocage)
+      allow update: if isAdmin()
+                    || (isOwner(storeId)
+                        && request.resource.data.actif == resource.data.actif
+                        && request.resource.data.subscriptionStatus
+                            == resource.data.subscriptionStatus
+                        && request.resource.data.trialEndDate
+                            == resource.data.trialEndDate
+                        && request.resource.data.get('subscriptionEndDate', null)
+                            == resource.data.get('subscriptionEndDate', null)
+                        && request.resource.data.get('currentPlanId', null)
+                            == resource.data.get('currentPlanId', null));
+      allow delete: if isAdmin();
 
-      // Preuves de paiement envoyées par le magasin : il peut créer et
-      // lire les siennes, jamais les modifier ou les supprimer une fois
-      // envoyées (seule la validation manuelle change leur statut, côté
-      // "stores/{storeId}" directement).
       match /payment_requests/{paymentId} {
-        allow create: if request.auth != null
-                        && request.auth.uid == storeId
+        allow create: if isOwner(storeId)
                         && request.resource.data.storeId == storeId
                         && request.resource.data.statut == 'en_attente';
-        allow read: if request.auth != null && request.auth.uid == storeId;
-        allow update, delete: if false;
+        allow read: if isAdmin() || isOwner(storeId);
+        // Admin valide / refuse les preuves de paiement
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
       }
     }
 
-    // Un magasin a accès aux demandes si son identité est validée et que
-    // son essai gratuit ou son abonnement payé est toujours en cours.
     function subscriptionValide(uid) {
       let store = get(/databases/$(database)/documents/stores/$(uid)).data;
       return store.actif == true

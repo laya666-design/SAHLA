@@ -5,7 +5,13 @@ import '../../services/admin_service.dart';
 
 class AdminPaymentsScreen extends StatefulWidget {
   final AppConfig config;
-  const AdminPaymentsScreen({super.key, required this.config});
+  /// Si true, pas d'AppBar ni de logout (intégré dans le dashboard admin).
+  final bool embedded;
+  const AdminPaymentsScreen({
+    super.key,
+    required this.config,
+    this.embedded = false,
+  });
 
   @override
   State<AdminPaymentsScreen> createState() => _AdminPaymentsScreenState();
@@ -86,6 +92,21 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return Column(
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _load,
+              tooltip: 'Actualiser',
+            ),
+          ),
+          Expanded(child: _buildBody()),
+        ],
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Paiements en attente'),

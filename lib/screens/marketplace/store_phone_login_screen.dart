@@ -28,23 +28,55 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
   bool _codeEnvoye = false;
   bool _rememberMe = true;
 
-  /// Normalise un numéro algérien saisi localement (ex: "0556 65 32 20"
-  /// ou "0556653220") vers le format international attendu par Firebase.
+  /// Normalise un numéro algérien saisi localement vers le format
+  /// international attendu par Firebase (+213…).
+  /// Accepte : 0556 65 32 20, 0556653220, 556653220, +213556653220,
+  /// ainsi que les chiffres arabes orientaux (٠١٢٣…).
   String? _normaliserNumero(String saisie) {
-    final chiffres = saisie.replaceAll(RegExp(r'[^0-9+]'), '');
-    if (chiffres.startsWith('+213')) return chiffres;
-    if (chiffres.startsWith('213')) return '+$chiffres';
+    // Chiffres arabes orientaux → arabes occidentaux
+    const eastern = '٠١٢٣٤٥٦٧٨٩';
+    const western = '0123456789';
+    var s = saisie.trim();
+    for (var i = 0; i < 10; i++) {
+      s = s.replaceAll(eastern[i], western[i]);
+    }
+    // Garde uniquement chiffres et +
+    final chiffres = s.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (chiffres.isEmpty) return null;
+
+    // Déjà international
+    if (chiffres.startsWith('+213') && chiffres.length == 13) {
+      return chiffres;
+    }
+    if (chiffres.startsWith('213') && chiffres.length == 12) {
+      return '+$chiffres';
+    }
+    // Local avec 0 : 0556653220 (10 chiffres)
     if (chiffres.startsWith('0') && chiffres.length == 10) {
       return '+213${chiffres.substring(1)}';
+    }
+    // Local sans 0 : 556653220 (9 chiffres, mobile 5/6/7)
+    if (chiffres.length == 9 &&
+        (chiffres.startsWith('5') ||
+            chiffres.startsWith('6') ||
+            chiffres.startsWith('7'))) {
+      return '+213$chiffres';
+    }
+    // +213 suivi d'un 0 local erroné : +2130556… → corriger
+    if (chiffres.startsWith('+2130') && chiffres.length == 14) {
+      return '+213${chiffres.substring(5)}';
     }
     return null;
   }
 
   Future<void> _envoyerCode() async {
-    final numero = _normaliserNumero(_phoneController.text);
+    final saisie = _phoneController.text;
+    final numero = _normaliserNumero(saisie);
     if (numero == null) {
+      final digits = saisie.replaceAll(RegExp(r'[^0-9]'), '');
       setState(() => _error =
-          'Numéro invalide. Utilise le format 0556 65 32 20.');
+          'Numéro invalide ($digits, ${digits.length} chiffres). '
+          'Utilise le format 0556 65 32 20.');
       return;
     }
 

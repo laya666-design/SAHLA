@@ -25,6 +25,11 @@ class MarketplaceService {
         (user.phoneNumber != null && user.phoneNumber!.isNotEmpty);
   }
 
+  /// Une session existe déjà (anonyme via "Continuer sans compte", ou
+  /// par téléphone) : permet de sauter l'écran de connexion au retour
+  /// dans le portail, sans redemander de se (re)connecter à chaque fois.
+  static bool get hasSession => currentUser != null;
+
   /// Garantit que le client a une session Firebase active et retourne
   /// son uid. Si déjà connecté (téléphone ou autre), on réutilise la
   /// session ; sinon connexion anonyme.

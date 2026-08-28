@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/store_service.dart';
@@ -6,10 +5,9 @@ import 'store_complete_profile_screen.dart';
 import 'store_dashboard_screen.dart';
 import 'store_login_screen.dart';
 
-/// Connexion magasin par téléphone/SMS — méthode principale.
-/// L'email/mot de passe reste accessible via "Utiliser l'email à la
-/// place" (StoreLoginScreen), en secours si l'envoi de SMS tarde ou
-/// échoue sur certains opérateurs.
+/// Connexion magasin par numéro de téléphone (enregistré comme identifiant).
+/// Pas de SMS / WhatsApp. La session persiste : retour en arrière
+/// ne déconnecte pas.
 class StorePhoneLoginScreen extends StatefulWidget {
   final AppConfig config;
   const StorePhoneLoginScreen({super.key, required this.config});
@@ -20,56 +18,42 @@ class StorePhoneLoginScreen extends StatefulWidget {
 
 class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
   final _phoneController = TextEditingController();
-  final _codeController = TextEditingController();
 
   bool _loading = false;
   String? _error;
-  String? _verificationId;
-  bool _codeEnvoye = false;
-  bool _rememberMe = true;
 
-  /// Normalise un numéro algérien saisi localement vers le format
-  /// international attendu par Firebase (+213…).
-  /// Accepte : 0556 65 32 20, 0556653220, 556653220, +213556653220,
-  /// ainsi que les chiffres arabes orientaux (٠١٢٣…).
   String? _normaliserNumero(String saisie) {
-    // Chiffres arabes orientaux → arabes occidentaux
     const eastern = '٠١٢٣٤٥٦٧٨٩';
     const western = '0123456789';
     var s = saisie.trim();
     for (var i = 0; i < 10; i++) {
       s = s.replaceAll(eastern[i], western[i]);
     }
-    // Garde uniquement chiffres et +
     final chiffres = s.replaceAll(RegExp(r'[^0-9+]'), '');
     if (chiffres.isEmpty) return null;
 
-    // Déjà international
     if (chiffres.startsWith('+213') && chiffres.length == 13) {
       return chiffres;
     }
     if (chiffres.startsWith('213') && chiffres.length == 12) {
       return '+$chiffres';
     }
-    // Local avec 0 : 0556653220 (10 chiffres)
     if (chiffres.startsWith('0') && chiffres.length == 10) {
       return '+213${chiffres.substring(1)}';
     }
-    // Local sans 0 : 556653220 (9 chiffres, mobile 5/6/7)
     if (chiffres.length == 9 &&
         (chiffres.startsWith('5') ||
             chiffres.startsWith('6') ||
             chiffres.startsWith('7'))) {
       return '+213$chiffres';
     }
-    // +213 suivi d'un 0 local erroné : +2130556… → corriger
     if (chiffres.startsWith('+2130') && chiffres.length == 14) {
       return '+213${chiffres.substring(5)}';
     }
     return null;
   }
 
-  Future<void> _envoyerCode() async {
+  Future<void> _connecter() async {
     final saisie = _phoneController.text;
     final numero = _normaliserNumero(saisie);
     if (numero == null) {
@@ -85,64 +69,23 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
       _error = null;
     });
 
-    await StoreService.startPhoneVerification(
-      phoneNumber: numero,
-      onCodeSent: (verificationId) {
-        if (!mounted) return;
-        setState(() {
-          _verificationId = verificationId;
-          _codeEnvoye = true;
-          _loading = false;
-        });
-      },
-      onError: (message) {
-        if (!mounted) return;
-        setState(() {
-          _error = message;
-          _loading = false;
-        });
-      },
-      onAutoVerified: () {
-        if (!mounted) return;
-        _apresConnexion(nouveauCompte: false);
-      },
-    );
-  }
-
-  Future<void> _validerCode() async {
-    if (_verificationId == null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
     try {
-      final nouveau = await StoreService.confirmPhoneCode(
-        verificationId: _verificationId!,
-        smsCode: _codeController.text.trim(),
-        rememberMe: _rememberMe,
+      final nouveau = await StoreService.connectWithPhoneAsId(numero);
+      if (!mounted) return;
+      // pushReplacement : le retour ne ramène pas à l'écran de login.
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => nouveau
+              ? StoreCompleteProfileScreen(config: widget.config)
+              : StoreDashboardScreen(config: widget.config),
+        ),
       );
-      _apresConnexion(nouveauCompte: nouveau);
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = e.code == 'invalid-verification-code'
-          ? 'Code incorrect. Vérifie le SMS reçu.'
-          : (e.message ?? 'Code invalide.'));
     } catch (e) {
       setState(() => _error = 'Erreur : $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _apresConnexion({required bool nouveauCompte}) {
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => nouveauCompte
-            ? StoreCompleteProfileScreen(config: widget.config)
-            : StoreDashboardScreen(config: widget.config),
-      ),
-    );
   }
 
   @override
@@ -162,100 +105,43 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
               const Icon(Icons.storefront, size: 56),
               const SizedBox(height: 8),
               const Text(
-                'Reçois les demandes de pièces des clients autour de toi '
-                'et réponds avec ton prix.',
+                'Entre ton numéro de téléphone pour recevoir '
+                'les demandes de pièces des clients.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.black54),
               ),
               const SizedBox(height: 24),
-              if (!_codeEnvoye) ...[
-                TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  enabled: !_loading,
-                  decoration: const InputDecoration(
-                    labelText: 'Numéro de téléphone',
-                    hintText: '0556 65 32 20',
-                    prefixIcon: Icon(Icons.phone),
-                  ),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                enabled: !_loading,
+                decoration: const InputDecoration(
+                  labelText: 'Numéro de téléphone',
+                  hintText: '0556 65 32 20',
+                  prefixIcon: Icon(Icons.phone),
                 ),
-                if (_error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
-                ],
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _loading ? null : _envoyerCode,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    backgroundColor: widget.config.primaryColor,
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Recevoir le code par SMS'),
-                ),
-              ] else ...[
-                Text(
-                  'Code envoyé au ${_phoneController.text}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.black54),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _codeController,
-                  keyboardType: TextInputType.number,
-                  enabled: !_loading,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 22, letterSpacing: 8),
-                  decoration: const InputDecoration(
-                    labelText: 'Code reçu par SMS',
-                    counterText: '',
-                  ),
-                  maxLength: 6,
-                ),
-                CheckboxListTile(
-                  value: _rememberMe,
-                  onChanged: (v) => setState(() => _rememberMe = v ?? true),
-                  title: const Text('Se souvenir de moi'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
-                ],
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _loading ? null : _validerCode,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    backgroundColor: widget.config.primaryColor,
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Valider'),
-                ),
-                TextButton(
-                  onPressed: _loading
-                      ? null
-                      : () => setState(() {
-                            _codeEnvoye = false;
-                            _codeController.clear();
-                          }),
-                  child: const Text('Modifier le numéro'),
-                ),
+                onSubmitted: (_) => _connecter(),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 8),
+                Text(_error!, style: const TextStyle(color: Colors.red)),
               ],
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _loading ? null : _connecter,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  backgroundColor: widget.config.primaryColor,
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Continuer avec ce numéro'),
+              ),
               const SizedBox(height: 16),
               const Row(children: [
                 Expanded(child: Divider()),
@@ -266,8 +152,6 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
                 Expanded(child: Divider()),
               ]),
               const SizedBox(height: 8),
-              // Secours : si le SMS n'arrive pas (délai/opérateur), le
-              // magasin peut toujours utiliser email/mot de passe.
               TextButton(
                 onPressed: _loading
                     ? null

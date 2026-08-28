@@ -27,6 +27,25 @@ class StoreService {
   static User? get currentUser => FirebaseAuth.instance.currentUser;
   static bool get isLoggedIn => currentUser != null;
 
+  /// Identifiant du document Firestore du magasin connecté.
+  ///
+  /// Pour les comptes créés via [signUpWithPhonePassword] (email technique
+  /// "0556653220@elbouni.local"), c'est le numéro de téléphone lui-même :
+  /// le document est stocké à `stores/0556653220`, lisible directement
+  /// dans la console Firestore. Pour les anciens comptes (Google, email
+  /// classique) créés avant ce changement, on retombe sur l'UID Firebase
+  /// Auth (leur document existe déjà sous cette clé, pas question de le
+  /// migrer automatiquement).
+  static String? get currentStoreDocId {
+    final user = currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.endsWith('@elbouni.local')) {
+      return email.split('@').first;
+    }
+    return user.uid;
+  }
+
   // --- Authentification téléphone + mot de passe (méthode principale) ---
   // Le magasin tape son numéro + un mot de passe qu'il choisit. Comme
   // Firebase Auth n'a pas nativement de "email/password mais avec un
@@ -112,12 +131,12 @@ class StoreService {
           'Numéro invalide. Utilise le format 0556 65 32 20.');
     }
     try {
-      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailTechniqueDepuisNumero(numero),
         password: password,
       );
       final profile = StoreProfile(
-        uid: cred.user!.uid,
+        uid: numero,
         nom: '',
         tel: numero,
         adresse: '',
@@ -126,12 +145,15 @@ class StoreService {
         trialEndDate:
             DateTime.now().add(const Duration(days: kEssaiGratuitJours)),
       );
+      // Le document est stocké sous le numéro de téléphone (et non l'UID
+      // Firebase Auth généré par cred.user!.uid), pour rester lisible et
+      // identifiable directement dans la console Firestore.
       await FirebaseFirestore.instance
           .collection(_storesCollection)
-          .doc(cred.user!.uid)
+          .doc(numero)
           .set(profile.toMap());
       await _saveRememberMe(true);
-      await _registerFcmToken(cred.user!.uid);
+      await _registerFcmToken(numero);
     } on FirebaseAuthException catch (e) {
       throw Exception(_messageErreurAuth(e));
     }
@@ -149,13 +171,12 @@ class StoreService {
           'Numéro invalide. Utilise le format 0556 65 32 20.');
     }
     try {
-      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailTechniqueDepuisNumero(numero),
         password: password,
       );
       await _saveRememberMe(rememberMe);
-      final uid = cred.user?.uid;
-      if (uid != null) await _registerFcmToken(uid);
+      await _registerFcmToken(numero);
     } on FirebaseAuthException catch (e) {
       throw Exception(_messageErreurAuth(e));
     }
@@ -269,11 +290,11 @@ class StoreService {
     required String nom,
     required String adresse,
   }) async {
-    final uid = currentUser?.uid;
-    if (uid == null) throw Exception('Non connecté.');
+    final docId = currentStoreDocId;
+    if (docId == null) throw Exception('Non connecté.');
     await FirebaseFirestore.instance
         .collection(_storesCollection)
-        .doc(uid)
+        .doc(docId)
         .update({'nom': nom, 'adresse': adresse});
   }
 
@@ -400,13 +421,13 @@ class StoreService {
 
   static Future<void> signOut() => FirebaseAuth.instance.signOut();
 
-  static Future<void> _registerFcmToken(String uid) async {
+  static Future<void> _registerFcmToken(String storeDocId) async {
     try {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null) return;
       await FirebaseFirestore.instance
           .collection(_storesCollection)
-          .doc(uid)
+          .doc(storeDocId)
           .update({'fcmToken': token});
     } catch (_) {
       // Permission notifications refusée ou token indisponible : le
@@ -416,11 +437,11 @@ class StoreService {
   }
 
   static Future<StoreProfile?> myProfile() async {
-    final uid = currentUser?.uid;
-    if (uid == null) return null;
+    final docId = currentStoreDocId;
+    if (docId == null) return null;
     final doc = await FirebaseFirestore.instance
         .collection(_storesCollection)
-        .doc(uid)
+        .doc(docId)
         .get();
     if (!doc.exists) return null;
     return StoreProfile.fromDoc(doc);
@@ -486,24 +507,24 @@ class StoreService {
     required String methode,
     String? planId,
   }) async {
-    final uid = currentUser?.uid;
-    if (uid == null) throw Exception('Non connecté.');
+    final docId = currentStoreDocId;
+    if (docId == null) throw Exception('Non connecté.');
 
     final id = FirebaseFirestore.instance
         .collection(_storesCollection)
-        .doc(uid)
+        .doc(docId)
         .collection('payment_requests')
         .doc()
         .id;
 
     final recuUrl = await CloudinaryService.uploadImage(
       recu,
-      folder: 'payment_proofs/$uid',
+      folder: 'payment_proofs/$docId',
     );
 
     final payment = PaymentRequest(
       id: id,
-      storeId: uid,
+      storeId: docId,
       montant: montant,
       methode: methode,
       recuUrl: recuUrl,
@@ -513,7 +534,7 @@ class StoreService {
 
     await FirebaseFirestore.instance
         .collection(_storesCollection)
-        .doc(uid)
+        .doc(docId)
         .collection('payment_requests')
         .doc(id)
         .set({...payment.toMap(), if (planId != null) 'planId': planId});
@@ -523,7 +544,7 @@ class StoreService {
     // validation manuelle du paiement.
     await FirebaseFirestore.instance
         .collection(_storesCollection)
-        .doc(uid)
+        .doc(docId)
         .update({'subscriptionStatus': SubscriptionStatus.enAttente});
   }
 
@@ -531,22 +552,22 @@ class StoreService {
   /// automatique de l'abonnement dès que le webhook Chargily confirme le
   /// paiement, sans avoir à recharger l'écran).
   static Stream<StoreProfile?> myProfileStream() {
-    final uid = currentUser?.uid;
-    if (uid == null) return const Stream.empty();
+    final docId = currentStoreDocId;
+    if (docId == null) return const Stream.empty();
     return FirebaseFirestore.instance
         .collection(_storesCollection)
-        .doc(uid)
+        .doc(docId)
         .snapshots()
         .map((doc) => doc.exists ? StoreProfile.fromDoc(doc) : null);
   }
 
   /// Historique des demandes de paiement du magasin connecté.
   static Stream<List<PaymentRequest>> myPaymentRequests() {
-    final uid = currentUser?.uid;
-    if (uid == null) return const Stream.empty();
+    final docId = currentStoreDocId;
+    if (docId == null) return const Stream.empty();
     return FirebaseFirestore.instance
         .collection(_storesCollection)
-        .doc(uid)
+        .doc(docId)
         .collection('payment_requests')
         .orderBy('dateEnvoi', descending: true)
         .snapshots()

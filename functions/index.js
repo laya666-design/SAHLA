@@ -302,7 +302,15 @@ exports.createChargilyCheckout = functions.https.onCall(async (data, context) =>
     );
   }
 
-  const storeId = context.auth.uid;
+  // Même logique que StoreService.currentStoreDocId côté app : pour les
+  // comptes téléphone + mot de passe, l'email technique est
+  // "0556653220@elbouni.local" et le document magasin est stocké sous
+  // "0556653220" (pas sous l'UID Firebase Auth généré). Pour les anciens
+  // comptes (Google / email classique), on retombe sur l'UID.
+  const authEmail = context.auth.token.email || '';
+  const storeId = authEmail.endsWith('@elbouni.local')
+    ? authEmail.split('@')[0]
+    : context.auth.uid;
 
   const res = await fetch(`${baseUrl}/checkouts`, {
     method: 'POST',

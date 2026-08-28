@@ -6,8 +6,28 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.admin == true;
     }
 
-    function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+    // Numéro de téléphone dérivé de l'email technique Firebase Auth
+    // "0556653220@elbouni.local" (voir StoreService.currentStoreDocId côté
+    // app). Retourne null si l'utilisateur connecté n'a pas ce type
+    // d'email (comptes Google / email classique créés avant ce système).
+    function numeroDepuisEmailTechnique() {
+      return (request.auth != null
+              && 'email' in request.auth.token
+              && request.auth.token.email.split('@').size() == 2
+              && request.auth.token.email.split('@')[1] == 'elbouni.local')
+        ? request.auth.token.email.split('@')[0]
+        : null;
+    }
+
+    // Un magasin est propriétaire de storeId si :
+    // - son UID Firebase Auth est directement storeId (anciens comptes
+    //   Google / email, créés avec l'UID comme clé de document), ou
+    // - storeId est son numéro de téléphone, dérivé de son email
+    //   technique (nouveaux comptes téléphone + mot de passe).
+    function isOwner(storeId) {
+      return request.auth != null
+        && (request.auth.uid == storeId
+            || numeroDepuisEmailTechnique() == storeId);
     }
 
     // Demandes de pièces
@@ -23,10 +43,10 @@ service cloud.firestore {
 
       match /offers/{offerId} {
         allow read: if true;
+        // offerId est l'ID du document magasin (stores/{offerId}), voir
+        // respondToRequest() : un seul prix par magasin, ré-écrasable.
         allow create, update: if isAdmin()
-                              || (request.auth != null
-                                  && request.auth.uid == offerId
-                                  && subscriptionValide(request.auth.uid));
+                              || (isOwner(offerId) && subscriptionValide(offerId));
         allow delete: if isAdmin();
       }
     }
@@ -63,8 +83,8 @@ service cloud.firestore {
       }
     }
 
-    function subscriptionValide(uid) {
-      let store = get(/databases/$(database)/documents/stores/$(uid)).data;
+    function subscriptionValide(storeId) {
+      let store = get(/databases/$(database)/documents/stores/$(storeId)).data;
       return store.actif == true
         && (
           (store.subscriptionStatus == 'essai'

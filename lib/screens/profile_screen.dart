@@ -11,8 +11,14 @@ import 'admin/admin_login_screen.dart';
 class ProfileScreen extends StatefulWidget {
   final AppConfig config;
   final ValueNotifier<bool> isAr;
+  final VoidCallback? onVehicleProfileChanged;
 
-  const ProfileScreen({super.key, required this.config, required this.isAr});
+  const ProfileScreen({
+    super.key,
+    required this.config,
+    required this.isAr,
+    this.onVehicleProfileChanged,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -26,6 +32,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
       query: 'subject=${Uri.encodeComponent("Support - El Bouni Pièces Auto")}',
     );
     await launchUrl(uri);
+  }
+
+  String _vehicleProfileLabel(String Function(String, String) t) {
+    switch (SettingsService.vehicleProfile) {
+      case 'voiture':
+        return t('Voiture', 'سيارة');
+      case 'moto':
+        return t('Moto / Scooter', 'دراجة نارية / سكوتر');
+      default:
+        return t('Les deux', 'كلاهما');
+    }
+  }
+
+  Future<void> _showVehicleProfilePicker(
+      BuildContext context, String Function(String, String) t) async {
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.directions_car),
+              title: Text(t('Voiture', 'سيارة')),
+              onTap: () => Navigator.pop(ctx, 'voiture'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.two_wheeler),
+              title: Text(t('Moto / Scooter', 'دراجة نارية / سكوتر')),
+              onTap: () => Navigator.pop(ctx, 'moto'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.sync_alt),
+              title: Text(t('Les deux', 'كلاهما')),
+              onTap: () => Navigator.pop(ctx, 'both'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (chosen == null) return;
+    await SettingsService.setVehicleProfile(chosen);
+    setState(() {});
+    widget.onVehicleProfileChanged?.call();
   }
 
   @override
@@ -114,6 +165,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onSelectionChanged: (s) =>
                         widget.isAr.value = s.first,
                   ),
+                ),
+              ),
+
+              // Type de véhicule (voiture / moto / les deux) : pilote
+              // quels onglets sont affichés dans l'app, choisi à
+              // l'onboarding et modifiable ici.
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.tune),
+                  title: Text(t('Type de véhicule', 'نوع المركبة')),
+                  subtitle: Text(_vehicleProfileLabel(t)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showVehicleProfilePicker(context, t),
                 ),
               ),
 

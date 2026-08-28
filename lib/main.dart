@@ -5,6 +5,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'firebase_options.dart';
 import 'config/app_config.dart';
 import 'screens/home_screen.dart';
+import 'screens/onboarding_profile_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/notification_service.dart';
 import 'services/store_service.dart';
@@ -41,6 +42,12 @@ class AjalakApp extends StatefulWidget {
 
 class _AjalakAppState extends State<AjalakApp> {
   final ValueNotifier<bool> isAr = ValueNotifier(false);
+  late bool _profileChosen = SettingsService.hasChosenVehicleProfile;
+
+  Future<void> _chooseProfile(String value) async {
+    await SettingsService.setVehicleProfile(value);
+    setState(() => _profileChosen = true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +69,16 @@ class _AjalakAppState extends State<AjalakApp> {
           ],
           supportedLocales: const [Locale('fr'), Locale('ar')],
           theme: AppTheme.light(config),
-          home: HomeScreen(config: config, isAr: isAr),
+          // Tant que le profil véhicule (voiture/moto/les deux) n'a pas
+          // été choisi, on bloque l'accès au reste de l'app derrière
+          // l'onboarding — voir SettingsService.vehicleProfile.
+          home: _profileChosen
+              ? HomeScreen(config: config, isAr: isAr)
+              : OnboardingProfileScreen(
+                  config: config,
+                  isAr: isAr,
+                  onChosen: _chooseProfile,
+                ),
         );
       },
     );

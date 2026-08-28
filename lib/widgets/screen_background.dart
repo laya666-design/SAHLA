@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 enum BackgroundCategory { voiture, moto, pieces, magasin, generique }
 
 /// Habille un écran avec une photo de fond thématique (voiture derrière
-/// l'onglet Véhicules, moto derrière l'onglet Motos, etc.), affichée sans
-/// voile : la photo reste pleinement visible. La lisibilité vient des
-/// cartes et champs opaques posés par-dessus, pas d'un filtre sur l'image.
+/// l'onglet Véhicules, moto derrière l'onglet Motos, etc.). Un voile
+/// dégradé est posé entre la photo et le contenu (plus marqué en haut,
+/// là où le titre n'a pas de carte derrière lui) pour garder le texte
+/// lisible quelle que soit la luminosité de la photo, tout en laissant
+/// la photo reconnaissable.
 ///
 /// Les photos ne sont PAS embarquées ici (droits d'auteur, fiabilité) :
 /// elles doivent être ajoutées par toi dans `assets/images/` — voir
@@ -61,8 +63,7 @@ class ScreenBackground extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // Photo de fond si le fichier existe dans assets/images/, sinon
-        // fallback dégradé + icône en filigrane. Aucun voile par-dessus :
-        // elle reste entièrement visible.
+        // fallback dégradé + icône en filigrane.
         Image.asset(
           _assetPath,
           fit: BoxFit.cover,
@@ -81,6 +82,24 @@ class ScreenBackground extends StatelessWidget {
                 child: Icon(_fallbackIcon,
                     size: 110, color: accentColor.withValues(alpha: 0.10)),
               ),
+            ),
+          ),
+        ),
+        // Voile de lisibilité : blanc, plus marqué en haut (zone du
+        // titre/sous-titre, sans carte derrière) et plus léger en bas
+        // (zone des cartes, déjà opaques). Garde la photo reconnaissable
+        // tout en assurant un contraste suffisant pour le texte sombre.
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xCCFFFFFF),
+                Color(0x99FFFFFF),
+                Color(0x66FFFFFF),
+              ],
+              stops: [0.0, 0.35, 1.0],
             ),
           ),
         ),

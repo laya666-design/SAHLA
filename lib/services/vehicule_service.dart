@@ -89,4 +89,20 @@ class SettingsService {
   static Future<void> setSmsRemindersEnabled(bool value) async {
     await _box.put(_smsRemindersKey, value);
   }
+
+  // --- Profil véhicule (voiture / moto / les deux) ---
+  // Choisi une fois à l'onboarding, avant l'accès à l'app, pour n'afficher
+  // que les rubriques pertinentes. Modifiable ensuite depuis l'onglet
+  // Profil.
+  static const String _vehicleProfileKey = 'vehicleProfile';
+
+  /// 'voiture', 'moto', 'both', ou null si pas encore choisi.
+  static String? get vehicleProfile =>
+      _box.get(_vehicleProfileKey) as String?;
+
+  static bool get hasChosenVehicleProfile => vehicleProfile != null;
+
+  static Future<void> setVehicleProfile(String value) async {
+    await _box.put(_vehicleProfileKey, value);
+  }
 }

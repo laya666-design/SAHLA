@@ -19,6 +19,20 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
   final _player = AudioPlayer();
   String? _noteVocaleEnCours; // url en cours de lecture, pour l'icône
 
+  // IMPORTANT : ces flux sont créés une seule fois ici (et non pas
+  // directement dans `build()`). Un StreamBuilder qui reçoit une NOUVELLE
+  // instance de Stream à chaque reconstruction repart en ConnectionState
+  // .waiting et ré-abonne une toute nouvelle requête Firestore. Comme le
+  // profil magasin (_profileStream) peut se réémettre (ex: écriture du
+  // fcmToken juste après connexion), tout l'écran se reconstruisait et
+  // relançait _openRequestsStream en boucle — c'était la cause probable
+  // du dashboard qui restait vide/figé sans jamais afficher la liste, le
+  // spinner ou "Aucune commande".
+  late final Stream<StoreProfile?> _profileStream =
+      StoreService.myProfileStream();
+  late final Stream<List<PartRequest>> _openRequestsStream =
+      StoreService.openRequests();
+
   @override
   void dispose() {
     _player.dispose();
@@ -127,7 +141,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<StoreProfile?>(
-      stream: StoreService.myProfileStream(),
+      stream: _profileStream,
       builder: (context, profileSnap) {
         if (profileSnap.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -225,19 +239,38 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                             ),
                             Expanded(
                               child: StreamBuilder<List<PartRequest>>(
-                                stream: StoreService.openRequests(),
+                                stream: _openRequestsStream,
                                 builder: (context, snapshot) {
+                                  // DEBUG TEMPORAIRE : à retirer une fois le
+                                  // problème confirmé résolu. Affiche l'état
+                                  // exact du flux en toutes lettres, pour ne
+                                  // plus jamais se retrouver avec un écran
+                                  // "vide" sans savoir pourquoi.
+                                  final debugBanner = Container(
+                                    width: double.infinity,
+                                    color: Colors.black87,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    child: Text(
+                                      'DEBUG état=${snapshot.connectionState} '
+                                      'erreur=${snapshot.hasError} '
+                                      'nbDocs=${snapshot.data?.length ?? "—"}',
+                                      style: const TextStyle(
+                                          color: Colors.white, fontSize: 10),
+                                    ),
+                                  );
+
+                                  Widget corps;
                                   if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return const Center(child: CircularProgressIndicator());
-                                  }
-                                  // Avant : une erreur ici (index Firestore
-                                  // manquant, permission refusée, document
-                                  // malformé...) était silencieusement
-                                  // avalée et affichait juste "Aucune
-                                  // commande" — impossible à diagnostiquer.
-                                  // On affiche maintenant le vrai message.
-                                  if (snapshot.hasError) {
-                                    return Center(
+                                    corps = const Center(child: CircularProgressIndicator());
+                                  } else if (snapshot.hasError) {
+                                    // Avant : une erreur ici (index Firestore
+                                    // manquant, permission refusée, document
+                                    // malformé...) était silencieusement
+                                    // avalée et affichait juste "Aucune
+                                    // commande" — impossible à diagnostiquer.
+                                    // On affiche maintenant le vrai message.
+                                    corps = Center(
                                       child: Padding(
                                         padding: const EdgeInsets.all(20),
                                         child: Column(
@@ -262,10 +295,8 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                         ),
                                       ),
                                     );
-                                  }
-                                  final requests = snapshot.data ?? [];
-                                  if (requests.isEmpty) {
-                                    return Center(
+                                  } else if ((snapshot.data ?? []).isEmpty) {
+                                    corps = Center(
                                       child: Padding(
                                         padding: const EdgeInsets.all(24),
                                         child: Container(
@@ -299,62 +330,71 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                         ),
                                       ),
                                     );
-                                  }
-                                  return ListView.builder(
-                                    padding: const EdgeInsets.all(12),
-                                    itemCount: requests.length,
-                                    itemBuilder: (context, i) {
-                                      final r = requests[i];
-                                      return Card(
-                                        margin: const EdgeInsets.only(bottom: 10),
-                                        child: ListTile(
-                                          onTap: () => _voirPhoto(r.photoUrl),
-                                          leading: r.photoUrl.isNotEmpty
-                                              ? ClipRRect(
-                                                  borderRadius: BorderRadius.circular(6),
-                                                  child: Image.network(r.photoUrl,
-                                                      width: 48, height: 48, fit: BoxFit.cover),
-                                                )
-                                              : const Icon(Icons.build),
-                                          title: Text(r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom),
-                                          subtitle: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  r.reference.isNotEmpty
-                                                      ? 'Réf: ${r.reference}'
-                                                      : (r.compatibilite.isNotEmpty ? r.compatibilite.join(', ') : ''),
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                              if (r.aUneNoteVocale)
-                                                InkWell(
-                                                  onTap: () => _ecouterNoteVocale(
-                                                      r.noteVocaleUrl!),
-                                                  child: Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    child: Icon(
-                                                      _noteVocaleEnCours ==
-                                                              r.noteVocaleUrl
-                                                          ? Icons.pause_circle
-                                                          : Icons
-                                                              .play_circle_outline,
-                                                      size: 20,
-                                                      color: widget
-                                                          .config.primaryColor,
-                                                    ),
+                                  } else {
+                                    final requests = snapshot.data!;
+                                    corps = ListView.builder(
+                                      padding: const EdgeInsets.all(12),
+                                      itemCount: requests.length,
+                                      itemBuilder: (context, i) {
+                                        final r = requests[i];
+                                        return Card(
+                                          margin: const EdgeInsets.only(bottom: 10),
+                                          child: ListTile(
+                                            onTap: () => _voirPhoto(r.photoUrl),
+                                            leading: r.photoUrl.isNotEmpty
+                                                ? ClipRRect(
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    child: Image.network(r.photoUrl,
+                                                        width: 48, height: 48, fit: BoxFit.cover),
+                                                  )
+                                                : const Icon(Icons.build),
+                                            title: Text(r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom),
+                                            subtitle: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    r.reference.isNotEmpty
+                                                        ? 'Réf: ${r.reference}'
+                                                        : (r.compatibilite.isNotEmpty ? r.compatibilite.join(', ') : ''),
+                                                    style: const TextStyle(fontSize: 12),
                                                   ),
                                                 ),
-                                            ],
+                                                if (r.aUneNoteVocale)
+                                                  InkWell(
+                                                    onTap: () => _ecouterNoteVocale(
+                                                        r.noteVocaleUrl!),
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(4),
+                                                      child: Icon(
+                                                        _noteVocaleEnCours ==
+                                                                r.noteVocaleUrl
+                                                            ? Icons.pause_circle
+                                                            : Icons
+                                                                .play_circle_outline,
+                                                        size: 20,
+                                                        color: widget
+                                                            .config.primaryColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            trailing: FilledButton(
+                                              onPressed: () => _repondre(r),
+                                              child: const Text('Répondre'),
+                                            ),
                                           ),
-                                          trailing: FilledButton(
-                                            onPressed: () => _repondre(r),
-                                            child: const Text('Répondre'),
-                                          ),
-                                        ),
-                                      );
-                                    },
+                                        );
+                                      },
+                                    );
+                                  }
+
+                                  return Column(
+                                    children: [
+                                      debugBanner,
+                                      Expanded(child: corps),
+                                    ],
                                   );
                                 },
                               ),

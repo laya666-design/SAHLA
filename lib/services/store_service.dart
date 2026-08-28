@@ -27,9 +27,143 @@ class StoreService {
   static User? get currentUser => FirebaseAuth.instance.currentUser;
   static bool get isLoggedIn => currentUser != null;
 
-  // --- Authentification téléphone/SMS (méthode principale) ---
-  // L'email/mot de passe reste disponible en secours (voir signUp/signIn
-  // plus bas) pour ne pas bloquer un compte si un SMS tarde à arriver.
+  // --- Authentification téléphone + mot de passe (méthode principale) ---
+  // Le magasin tape son numéro + un mot de passe qu'il choisit. Comme
+  // Firebase Auth n'a pas nativement de "email/password mais avec un
+  // numéro comme identifiant", on convertit le numéro normalisé en un
+  // email technique invisible pour l'utilisateur : "0556653220" devient
+  // "0556653220@elbouni.local". Ce domaine n'existe pas réellement — il
+  // ne sert qu'à fabriquer un identifiant unique valide pour Firebase.
+  // Avantage : pas de SMS à payer, connexion instantanée, sécurisé par
+  // un vrai mot de passe choisi par le magasin.
+  //
+  // LIMITE IMPORTANTE : comme "@elbouni.local" n'est pas un vrai domaine,
+  // `sendPasswordResetEmail` ne peut pas fonctionner pour ces comptes
+  // (aucun email ne peut être livré). Si un magasin oublie son mot de
+  // passe, il faut le réinitialiser manuellement depuis la console
+  // Firebase (Authentication > l'utilisateur > Réinitialiser le mot de
+  // passe) en attendant un futur écran "mot de passe oublié" dédié.
+
+  /// Normalise une saisie de numéro algérien vers le format local à 10
+  /// chiffres commençant par 0 (ex: "0556653220"), quel que soit le
+  /// format saisi (+213..., 213..., chiffres arabes...). Retourne null
+  /// si la saisie n'est pas un numéro algérien valide.
+  static String? normaliserNumeroLocal(String saisie) {
+    const eastern = '٠١٢٣٤٥٦٧٨٩';
+    const western = '0123456789';
+    var s = saisie.trim();
+    for (var i = 0; i < 10; i++) {
+      s = s.replaceAll(eastern[i], western[i]);
+    }
+    var chiffres = s.replaceAll(RegExp(r'[^0-9+]'), '');
+
+    if (chiffres.startsWith('+213') && chiffres.length == 13) {
+      chiffres = '0${chiffres.substring(4)}';
+    } else if (chiffres.startsWith('213') && chiffres.length == 12) {
+      chiffres = '0${chiffres.substring(3)}';
+    } else if (chiffres.length == 9 &&
+        (chiffres.startsWith('5') ||
+            chiffres.startsWith('6') ||
+            chiffres.startsWith('7'))) {
+      chiffres = '0$chiffres';
+    }
+
+    if (chiffres.startsWith('0') && chiffres.length == 10) {
+      return chiffres;
+    }
+    return null;
+  }
+
+  /// Email technique invisible pour l'utilisateur, dérivé du numéro.
+  static String _emailTechniqueDepuisNumero(String numeroLocal) =>
+      '$numeroLocal@elbouni.local';
+
+  static String _messageErreurAuth(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Numéro ou mot de passe incorrect.';
+      case 'user-not-found':
+        return 'Aucun compte avec ce numéro. Crée un compte d\'abord.';
+      case 'email-already-in-use':
+        return 'Un compte existe déjà avec ce numéro. Connecte-toi plutôt.';
+      case 'weak-password':
+        return 'Mot de passe trop court (6 caractères minimum).';
+      case 'too-many-requests':
+        return 'Trop de tentatives. Réessaie plus tard.';
+      case 'network-request-failed':
+        return 'Pas de connexion internet. Vérifie ton réseau et réessaie.';
+      default:
+        return e.message ?? 'Erreur de connexion.';
+    }
+  }
+
+  /// Crée un compte magasin avec numéro + mot de passe. `actif: false`
+  /// jusqu'à validation manuelle, comme pour les autres méthodes
+  /// d'inscription. L'écran appelant doit ensuite rediriger vers
+  /// [StoreCompleteProfileScreen] (nom + adresse du magasin).
+  static Future<void> signUpWithPhonePassword({
+    required String telephone,
+    required String password,
+  }) async {
+    final numero = normaliserNumeroLocal(telephone);
+    if (numero == null) {
+      throw Exception(
+          'Numéro invalide. Utilise le format 0556 65 32 20.');
+    }
+    try {
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailTechniqueDepuisNumero(numero),
+        password: password,
+      );
+      final profile = StoreProfile(
+        uid: cred.user!.uid,
+        nom: '',
+        tel: numero,
+        adresse: '',
+        actif: false,
+        subscriptionStatus: SubscriptionStatus.essai,
+        trialEndDate:
+            DateTime.now().add(const Duration(days: kEssaiGratuitJours)),
+      );
+      await FirebaseFirestore.instance
+          .collection(_storesCollection)
+          .doc(cred.user!.uid)
+          .set(profile.toMap());
+      await _saveRememberMe(true);
+      await _registerFcmToken(cred.user!.uid);
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_messageErreurAuth(e));
+    }
+  }
+
+  /// Connexion magasin avec numéro + mot de passe.
+  static Future<void> signInWithPhonePassword({
+    required String telephone,
+    required String password,
+    bool rememberMe = true,
+  }) async {
+    final numero = normaliserNumeroLocal(telephone);
+    if (numero == null) {
+      throw Exception(
+          'Numéro invalide. Utilise le format 0556 65 32 20.');
+    }
+    try {
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailTechniqueDepuisNumero(numero),
+        password: password,
+      );
+      await _saveRememberMe(rememberMe);
+      final uid = cred.user?.uid;
+      if (uid != null) await _registerFcmToken(uid);
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_messageErreurAuth(e));
+    }
+  }
+
+  // --- Ancienne authentification téléphone/SMS (conservée mais plus
+  // utilisée par l'écran de connexion — voir signUpWithPhonePassword /
+  // signInWithPhonePassword ci-dessus) ---
 
   /// Lance l'envoi du code SMS vers [phoneNumber] (format international,
   /// ex: "+213556653220"). [onCodeSent] reçoit l'id de vérification à

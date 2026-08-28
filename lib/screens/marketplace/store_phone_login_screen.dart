@@ -22,6 +22,19 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
   bool _loading = false;
   String? _error;
 
+  @override
+  void initState() {
+    super.initState();
+    // Rafraîchit le bouton (texte "Se connecter") dès que l'utilisateur tape.
+    _phoneController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
   String? _normaliserNumero(String saisie) {
     const eastern = '٠١٢٣٤٥٦٧٨٩';
     const western = '0123456789';
@@ -140,7 +153,9 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('Continuer avec ce numéro'),
+                    : Text(_phoneController.text.trim().isEmpty
+                        ? 'Continuer avec ce numéro'
+                        : 'Se connecter'),
               ),
               const SizedBox(height: 16),
               const Row(children: [

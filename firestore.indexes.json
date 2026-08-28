@@ -7,6 +7,22 @@
         { "fieldPath": "statut", "order": "ASCENDING" },
         { "fieldPath": "dateEnvoi", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "part_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "statut", "order": "ASCENDING" },
+        { "fieldPath": "dateCreation", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "part_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "dateCreation", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

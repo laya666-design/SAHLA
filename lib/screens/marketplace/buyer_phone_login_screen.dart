@@ -28,6 +28,19 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
   bool get _ar => widget.isAr;
   String _t(String fr, String ar) => _ar ? ar : fr;
 
+  @override
+  void initState() {
+    super.initState();
+    // Rafraîchit le bouton (texte "Se connecter") dès que l'utilisateur tape.
+    _phoneController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
   /// Normalise un numéro algérien vers +213…
   String? _normaliserNumero(String saisie) {
     const eastern = '٠١٢٣٤٥٦٧٨٩';
@@ -164,10 +177,12 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : Text(_t(
-                        'Continuer avec ce numéro',
-                        'المتابعة بهذا الرقم',
-                      )),
+                    : Text(
+                        _phoneController.text.trim().isEmpty
+                            ? _t('Continuer avec ce numéro',
+                                'المتابعة بهذا الرقم')
+                            : _t('Se connecter', 'تسجيل الدخول'),
+                      ),
               ),
               const SizedBox(height: 16),
               const Row(children: [

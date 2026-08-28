@@ -265,7 +265,40 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                   }
                                   final requests = snapshot.data ?? [];
                                   if (requests.isEmpty) {
-                                    return const Center(child: Text('Aucune commande pour le moment.'));
+                                    return Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(20),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(16),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.08),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 3),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.inbox_outlined,
+                                                  size: 36, color: Colors.black38),
+                                              const SizedBox(height: 10),
+                                              const Text(
+                                                'Aucune commande pour le moment.',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.black87),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
                                   }
                                   return ListView.builder(
                                     padding: const EdgeInsets.all(12),

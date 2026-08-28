@@ -128,9 +128,16 @@ class MarketplaceService {
     yield* FirebaseFirestore.instance
         .collection(_requestsCollection)
         .where('clientId', isEqualTo: uid)
-        .orderBy('dateCreation', descending: true)
+        // Pas de orderBy Firestore ici (même raison que côté magasin) :
+        // where + orderBy sur des champs différents exige un index
+        // composite ; sans lui la requête échoue et la liste reste vide.
+        // Tri fait côté client.
         .snapshots()
-        .map((s) => s.docs.map(PartRequest.fromDoc).toList());
+        .map((s) {
+      final demandes = s.docs.map(PartRequest.fromDoc).toList();
+      demandes.sort((a, b) => b.dateCreation.compareTo(a.dateCreation));
+      return demandes;
+    });
   }
 
   /// Réponses des magasins pour une demande donnée.

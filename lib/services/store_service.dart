@@ -337,9 +337,16 @@ class StoreService {
     return FirebaseFirestore.instance
         .collection('part_requests')
         .where('statut', isEqualTo: 'open')
-        .orderBy('dateCreation', descending: true)
+        // Pas de orderBy ici : évite de dépendre d'un index composite
+        // Firestore (statut + dateCreation) qui, s'il manque, fait échouer
+        // la requête silencieusement côté magasin (liste vide). Tri fait
+        // côté client juste après.
         .snapshots()
-        .map((s) => s.docs.map(PartRequest.fromDoc).toList());
+        .map((s) {
+      final demandes = s.docs.map(PartRequest.fromDoc).toList();
+      demandes.sort((a, b) => b.dateCreation.compareTo(a.dateCreation));
+      return demandes;
+    });
   }
 
   /// Le magasin répond à une demande avec un prix.

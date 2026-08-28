@@ -35,9 +35,8 @@ class VehiclesScreen extends StatefulWidget {
     this.types = const [TypeVehicule.voiture],
     this.titre = 'Mes véhicules',
     this.titreAr = 'سياراتي',
-    this.sousTitre =
-        'Assurance, vignette et contrôle technique, par véhicule.',
-    this.sousTitreAr = 'التأمين والرخصة والفحص التقني، لكل سيارة.',
+    this.sousTitre = 'Assurance et contrôle technique, par véhicule.',
+    this.sousTitreAr = 'التأمين والفحص التقني، لكل سيارة.',
     this.iconePrincipale = Icons.directions_car,
     this.labelAjout = 'Ajouter un véhicule',
     this.labelAjoutAr = 'إضافة سيارة',
@@ -576,75 +575,4 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                                   style: const TextStyle(fontSize: 11)),
                               visualDensity: VisualDensity.compact,
                               backgroundColor:
-                                  widget.config.primaryColor.withOpacity(0.08),
-                            ),
-                          _statusChip(
-                              v.assuranceExpiration,
-                              _t('Assurance non renseignée',
-                                  'التأمين غير محدد')),
-                          _statusChip(
-                              v.controleTechniqueExpiration,
-                              _t('CT non renseigné',
-                                  'الفحص التقني غير محدد')),
-                        ],
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: _t('Modifier', 'تعديل'),
-                          icon: const Icon(Icons.edit_outlined, size: 20),
-                          onPressed: () =>
-                              _openVehicleFormDialog(existing: v),
-                        ),
-                        IconButton(
-                          tooltip: _t('Supprimer', 'حذف'),
-                          icon: const Icon(Icons.delete_outline,
-                              size: 20, color: Colors.red),
-                          onPressed: () => _confirmDelete(v),
-                        ),
-                        const Icon(Icons.chevron_right, color: Colors.black38),
-                      ],
-                    ),
-                    onTap: () => _openVehicle(v),
-                  ),
-                )),
-            if (showLockedCard)
-              Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                color: Colors.grey.shade100,
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(12),
-                  leading:
-                      const Icon(Icons.lock_outline, color: Colors.black45),
-                  title: Text(_t('Élément suivant', 'العنصر التالي'),
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(_t(
-                      'Réservé aux comptes Premium', 'حصري لحسابات Premium')),
-                  trailing: Chip(
-                    label: const Text('Premium',
-                        style: TextStyle(fontSize: 11, color: Colors.white)),
-                    backgroundColor: widget.config.primaryColor,
-                  ),
-                  onTap: _showPremiumSheet,
-                ),
-              )
-            else
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _ajouterVehiculeViaScan,
-                  icon: const Icon(Icons.add),
-                  label: Text(_labelAjout),
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48)),
-                ),
-              ),
-          ],
-        ),
-      ),
-      ),
-    );
-  }
-}
+                                  widget.config.primaryColo

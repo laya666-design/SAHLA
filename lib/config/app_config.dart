@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 /// pour ne pas casser la config Firebase/keystore existante.
 class AppConfig {
   final String appName;
-  final String slogan;
   final Color primaryColor; // vert VROUM23
   final Color primaryDark;
   final Color enchereColor; // orange — enchères / offres magasins
@@ -14,7 +13,6 @@ class AppConfig {
 
   const AppConfig._({
     required this.appName,
-    required this.slogan,
     required this.primaryColor,
     required this.primaryDark,
     required this.enchereColor,
@@ -24,7 +22,6 @@ class AppConfig {
 
   static const _instance = AppConfig._(
     appName: 'VROUM23',
-    slogan: 'El Bouni yhawes 3lik',
     primaryColor: Color(0xFF22C55E), // vert
     primaryDark: Color(0xFF16A34A),
     enchereColor: Color(0xFFF97316), // orange

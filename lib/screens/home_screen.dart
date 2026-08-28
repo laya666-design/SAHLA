@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/vehicule.dart';
+import '../services/vehicule_service.dart';
 import 'parts_portal_screen.dart';
 import 'profile_screen.dart';
 import 'vehicles_screen.dart';
@@ -23,25 +24,64 @@ class _HomeScreenState extends State<HomeScreen> {
     return ValueListenableBuilder<bool>(
       valueListenable: widget.isAr,
       builder: (context, isAr, _) {
-        final screens = [
-          VehiclesScreen(config: widget.config, isAr: isAr),
-          VehiclesScreen(
-            config: widget.config,
-            isAr: isAr,
-            types: const [TypeVehicule.moto, TypeVehicule.scooter],
-            titre: 'Motos & scooters',
-            titreAr: 'الدراجات النارية',
-            sousTitre: 'Assurance et contrôle technique, par deux-roues.',
-            sousTitreAr: 'التأمين والفحص التقني، لكل دراجة.',
-            iconePrincipale: Icons.two_wheeler,
-            labelAjout: 'Ajouter une moto / un scooter',
-            labelAjoutAr: 'إضافة دراجة نارية / سكوتر',
-            labelVide: 'Aucune moto ni scooter pour le moment',
-            labelVideAr: 'لا توجد دراجة حتى الآن',
-          ),
+        // Profil choisi à l'onboarding (voiture / moto / les deux) :
+        // pilote quels onglets sont affichés. 'both' par défaut si
+        // jamais absent (ne devrait pas arriver, l'onboarding est
+        // obligatoire avant d'atteindre cet écran).
+        final profile = SettingsService.vehicleProfile ?? 'both';
+        final showVoiture = profile == 'voiture' || profile == 'both';
+        final showMoto = profile == 'moto' || profile == 'both';
+
+        final screens = <Widget>[
+          if (showVoiture) VehiclesScreen(config: widget.config, isAr: isAr),
+          if (showMoto)
+            VehiclesScreen(
+              config: widget.config,
+              isAr: isAr,
+              types: const [TypeVehicule.moto, TypeVehicule.scooter],
+              titre: 'Motos & scooters',
+              titreAr: 'الدراجات النارية',
+              sousTitre: 'Assurance et contrôle technique, par deux-roues.',
+              sousTitreAr: 'التأمين والفحص التقني، لكل دراجة.',
+              iconePrincipale: Icons.two_wheeler,
+              labelAjout: 'Ajouter une moto / un scooter',
+              labelAjoutAr: 'إضافة دراجة نارية / سكوتر',
+              labelVide: 'Aucune moto ni scooter pour le moment',
+              labelVideAr: 'لا توجد دراجة حتى الآن',
+            ),
           PartsPortalScreen(config: widget.config, isAr: isAr),
-          ProfileScreen(config: widget.config, isAr: widget.isAr),
+          ProfileScreen(
+            config: widget.config,
+            isAr: widget.isAr,
+            onVehicleProfileChanged: () => setState(() {}),
+          ),
         ];
+
+        final destinations = <NavigationDestination>[
+          if (showVoiture)
+            NavigationDestination(
+              icon: const Icon(Icons.directions_car),
+              label: isAr ? 'سياراتي' : 'Véhicules',
+            ),
+          if (showMoto)
+            NavigationDestination(
+              icon: const Icon(Icons.two_wheeler),
+              label: isAr ? 'دراجاتي' : 'Motos',
+            ),
+          NavigationDestination(
+            icon: const Icon(Icons.build),
+            label: isAr ? 'القطع' : 'Pièces',
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.person),
+            label: isAr ? 'حسابي' : 'Profil',
+          ),
+        ];
+
+        // Filet de sécurité si le nombre d'onglets change (ex: profil
+        // modifié depuis l'onglet Profil) pendant qu'un onglet au-delà
+        // de la nouvelle liste était sélectionné.
+        final safeIndex = _index >= screens.length ? 0 : _index;
 
         return Directionality(
           textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
@@ -62,28 +102,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-            body: IndexedStack(index: _index, children: screens),
+            body: IndexedStack(index: safeIndex, children: screens),
             bottomNavigationBar: NavigationBar(
-              selectedIndex: _index,
+              selectedIndex: safeIndex,
               onDestinationSelected: (i) => setState(() => _index = i),
-              destinations: [
-                NavigationDestination(
-                  icon: const Icon(Icons.directions_car),
-                  label: isAr ? 'سياراتي' : 'Véhicules',
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.two_wheeler),
-                  label: isAr ? 'دراجاتي' : 'Motos',
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.build),
-                  label: isAr ? 'القطع' : 'Pièces',
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.person),
-                  label: isAr ? 'حسابي' : 'Profil',
-                ),
-              ],
+              destinations: destinations,
             ),
           ),
         );

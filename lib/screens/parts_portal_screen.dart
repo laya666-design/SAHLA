@@ -49,14 +49,18 @@ class PartsPortalScreen extends StatelessWidget {
                 'صوّر القطعة المكسورة، احصل على المرجع وأرسل طلبك للمتاجر.',
               ),
               color: config.primaryColor,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MarketplaceService.hasSession
-                      ? BuyerPortalScreen(config: config, isAr: isAr)
-                      : BuyerPhoneLoginScreen(config: config, isAr: isAr),
-                ),
-              ),
+              onTap: () async {
+                await MarketplaceService.loadPhoneAsId();
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MarketplaceService.hasSession
+                        ? BuyerPortalScreen(config: config, isAr: isAr)
+                        : BuyerPhoneLoginScreen(config: config, isAr: isAr),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 16),
             _PortalCard(

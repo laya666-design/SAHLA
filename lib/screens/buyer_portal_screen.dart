@@ -6,25 +6,52 @@ import 'marketplace/mes_demandes_screen.dart';
 import 'parts_screen.dart';
 
 /// Portail acheteur : le scan photo (PartsScreen) avec un accès direct à
-/// "Mes demandes" pour suivre les réponses des magasins.
-/// Connexion téléphone optionnelle pour retrouver ses demandes sur un
-/// autre appareil.
-class BuyerPortalScreen extends StatelessWidget {
+/// "Mes demandes". La session (numéro comme id) persiste au retour en arrière.
+class BuyerPortalScreen extends StatefulWidget {
   final AppConfig config;
   final bool isAr;
   const BuyerPortalScreen({super.key, required this.config, this.isAr = false});
 
-  bool get _ar => isAr;
+  @override
+  State<BuyerPortalScreen> createState() => _BuyerPortalScreenState();
+}
+
+class _BuyerPortalScreenState extends State<BuyerPortalScreen> {
+  bool _ready = false;
+
+  bool get _ar => widget.isAr;
   String _t(String fr, String ar) => _ar ? ar : fr;
 
   @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    await MarketplaceService.loadPhoneAsId();
+    if (mounted) setState(() => _ready = true);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!_ready) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: widget.config.primaryColor,
+          foregroundColor: Colors.white,
+          title: Text(_t('Portail acheteur', 'بوابة المشتري')),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final phoneLoggedIn = MarketplaceService.isPhoneLoggedIn;
-    final phone = MarketplaceService.currentUser?.phoneNumber;
+    final phone = MarketplaceService.clientId;
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: config.primaryColor,
+        backgroundColor: widget.config.primaryColor,
         foregroundColor: Colors.white,
         title: Text(_t('Portail acheteur', 'بوابة المشتري')),
         actions: [
@@ -34,7 +61,7 @@ class BuyerPortalScreen extends StatelessWidget {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (_) => MesDemandesScreen(config: config)),
+                  builder: (_) => MesDemandesScreen(config: widget.config)),
             ),
           ),
           if (phoneLoggedIn)
@@ -45,11 +72,12 @@ class BuyerPortalScreen extends StatelessWidget {
                 if (value == 'logout') {
                   await MarketplaceService.signOut();
                   if (!context.mounted) return;
+                  // Remplace pour que le retour ne garde pas l'ancien portail.
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
                       builder: (_) => BuyerPhoneLoginScreen(
-                          config: config, isAr: isAr),
+                          config: widget.config, isAr: widget.isAr),
                     ),
                   );
                 }
@@ -76,14 +104,14 @@ class BuyerPortalScreen extends StatelessWidget {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      BuyerPhoneLoginScreen(config: config, isAr: isAr),
+                  builder: (_) => BuyerPhoneLoginScreen(
+                      config: widget.config, isAr: widget.isAr),
                 ),
               ),
             ),
         ],
       ),
-      body: PartsScreen(config: config, isAr: isAr),
+      body: PartsScreen(config: widget.config, isAr: widget.isAr),
     );
   }
 }

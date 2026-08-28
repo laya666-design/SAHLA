@@ -155,7 +155,9 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
     );
   }
 
-  void _continuerSansCompte() {
+  void _continuerSansCompte() async {
+    await MarketplaceService.ensureSignedIn();
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

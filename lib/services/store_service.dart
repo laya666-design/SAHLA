@@ -35,12 +35,14 @@ class StoreService {
   /// ex: "+213556653220"). [onCodeSent] reçoit l'id de vérification à
   /// fournir ensuite à [confirmPhoneCode]. [onAutoVerified] est appelé si
   /// Android confirme le numéro tout seul (sans saisie du code) — rare
-  /// mais possible sur certains appareils.
+  /// mais possible sur certains appareils ; son paramètre indique si un
+  /// nouveau profil vient d'être créé (même sens que le retour de
+  /// [confirmPhoneCode]).
   static Future<void> startPhoneVerification({
     required String phoneNumber,
     required void Function(String verificationId) onCodeSent,
     required void Function(String message) onError,
-    required void Function() onAutoVerified,
+    required void Function(bool isNouveau) onAutoVerified,
   }) async {
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: phoneNumber,
@@ -48,8 +50,10 @@ class StoreService {
       verificationCompleted: (PhoneAuthCredential credential) async {
         try {
           await FirebaseAuth.instance.signInWithCredential(credential);
-          await _ensureProfileAfterPhoneAuth();
-          onAutoVerified();
+          final isNouveau = await _ensureProfileAfterPhoneAuth();
+          final uid = currentUser?.uid;
+          if (uid != null) await _registerFcmToken(uid);
+          onAutoVerified(isNouveau);
         } catch (e) {
           onError('$e');
         }
@@ -98,48 +102,6 @@ class StoreService {
     final uid = currentUser?.uid;
     if (uid != null) await _registerFcmToken(uid);
     return isNouveau;
-  }
-
-  /// Connexion sans code (WhatsApp absent ou code non reçu) :
-  /// session anonyme + profil magasin identifié par le numéro de téléphone.
-  /// Retourne true si un nouveau profil a été créé.
-  static Future<bool> connectWithPhoneAsId(String phoneNumber) async {
-    // Session anonyme pour avoir un uid Firebase stable sur cet appareil.
-    var user = FirebaseAuth.instance.currentUser;
-    if (user == null || !user.isAnonymous) {
-      // Si déjà connecté avec un vrai compte, on ne force pas l'anonyme.
-      if (user == null) {
-        final cred = await FirebaseAuth.instance.signInAnonymously();
-        user = cred.user;
-      }
-    }
-    final uid = user!.uid;
-
-    // Cherche un magasin déjà lié à ce numéro (reconnexion sur nouvel appareil
-    // non supportée en mode numéro-as-id sans backend dédié ; on crée / met
-    // à jour le profil lié à cet uid).
-    final docRef =
-        FirebaseFirestore.instance.collection(_storesCollection).doc(uid);
-    final doc = await docRef.get();
-    if (doc.exists) {
-      // Met à jour le téléphone si besoin.
-      await docRef.update({'tel': phoneNumber});
-      await _registerFcmToken(uid);
-      return false;
-    }
-    final profile = StoreProfile(
-      uid: uid,
-      nom: '',
-      tel: phoneNumber,
-      adresse: '',
-      actif: false,
-      subscriptionStatus: SubscriptionStatus.essai,
-      trialEndDate:
-          DateTime.now().add(const Duration(days: kEssaiGratuitJours)),
-    );
-    await docRef.set(profile.toMap());
-    await _registerFcmToken(uid);
-    return true;
   }
 
   /// Crée un profil minimal si c'est la première connexion par téléphone

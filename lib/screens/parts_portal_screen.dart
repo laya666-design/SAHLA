@@ -52,7 +52,7 @@ class PartsPortalScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => MarketplaceService.isPhoneLoggedIn
+                  builder: (_) => MarketplaceService.hasSession
                       ? BuyerPortalScreen(config: config, isAr: isAr)
                       : BuyerPhoneLoginScreen(config: config, isAr: isAr),
                 ),

@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 enum BackgroundCategory { voiture, moto, pieces, magasin, generique }
 
 /// Habille un écran avec une photo de fond thématique (voiture derrière
-/// l'onglet Véhicules, moto derrière l'onglet Motos, etc.) surmontée d'un
-/// voile blanc pour garder le texte lisible.
+/// l'onglet Véhicules, moto derrière l'onglet Motos, etc.), affichée sans
+/// voile : la photo reste pleinement visible. La lisibilité vient des
+/// cartes et champs opaques posés par-dessus, pas d'un filtre sur l'image.
 ///
 /// Les photos ne sont PAS embarquées ici (droits d'auteur, fiabilité) :
 /// elles doivent être ajoutées par toi dans `assets/images/` — voir
@@ -60,7 +61,8 @@ class ScreenBackground extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // Photo de fond si le fichier existe dans assets/images/, sinon
-        // fallback dégradé + icône en filigrane.
+        // fallback dégradé + icône en filigrane. Aucun voile par-dessus :
+        // elle reste entièrement visible.
         Image.asset(
           _assetPath,
           fit: BoxFit.cover,
@@ -79,21 +81,6 @@ class ScreenBackground extends StatelessWidget {
                 child: Icon(_fallbackIcon,
                     size: 110, color: accentColor.withValues(alpha: 0.10)),
               ),
-            ),
-          ),
-        ),
-        // Voile blanc dégradé : la photo reste visible en haut, le
-        // contenu redevient parfaitement lisible plus bas.
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              stops: const [0.0, 0.32],
-              colors: [
-                Colors.white.withValues(alpha: 0.60),
-                Colors.white.withValues(alpha: 0.94),
-              ],
             ),
           ),
         ),

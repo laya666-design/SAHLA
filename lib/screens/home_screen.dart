@@ -31,9 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
             types: const [TypeVehicule.moto, TypeVehicule.scooter],
             titre: 'Motos & scooters',
             titreAr: 'الدراجات النارية',
-            sousTitre:
-                'Assurance, vignette et contrôle technique, par deux-roues.',
-            sousTitreAr: 'التأمين والرخصة والفحص التقني، لكل دراجة.',
+            sousTitre: 'Assurance et contrôle technique, par deux-roues.',
+            sousTitreAr: 'التأمين والفحص التقني، لكل دراجة.',
             iconePrincipale: Icons.two_wheeler,
             labelAjout: 'Ajouter une moto / un scooter',
             labelAjoutAr: 'إضافة دراجة نارية / سكوتر',
@@ -50,19 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
             appBar: AppBar(
               backgroundColor: widget.config.primaryColor,
               foregroundColor: Colors.black,
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(widget.config.appName,
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                  Text(
-                    widget.config.slogan,
-                    style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
+              title: Text(widget.config.appName,
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
               actions: [
                 TextButton(
                   onPressed: () => widget.isAr.value = !isAr,

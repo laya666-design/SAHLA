@@ -575,4 +575,62 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                                   style: const TextStyle(fontSize: 11)),
                               visualDensity: VisualDensity.compact,
                               backgroundColor:
-                                  widget.config.primaryColo
+                                  widget.config.primaryColor.withOpacity(0.1),
+                            ),
+                          _statusChip(v.assuranceExpiration,
+                              _t('Pas d\'assurance', 'لا يوجد تأمين')),
+                          _statusChip(v.controleTechniqueExpiration,
+                              _t('Pas de CT', 'لا يوجد فحص تقني')),
+                        ],
+                      ),
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _openVehicleFormDialog(existing: v);
+                        } else if (value == 'delete') {
+                          _confirmDelete(v);
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text(_t('Modifier', 'تعديل')),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(_t('Supprimer', 'حذف')),
+                        ),
+                      ],
+                    ),
+                    onTap: () => _openVehicle(v),
+                  ),
+                )),
+            if (showLockedCard)
+              Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: Icon(Icons.lock, color: widget.config.primaryColor),
+                  title: Text(_t('Ajouter un autre véhicule',
+                      'إضافة مركبة أخرى')),
+                  subtitle: Text(_t('Passe en Premium pour continuer',
+                      'قم بالترقية إلى Premium للمتابعة')),
+                  onTap: _showPremiumSheet,
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: OutlinedButton.icon(
+                  onPressed: _ajouterVehiculeViaScan,
+                  icon: const Icon(Icons.add),
+                  label: Text(_labelAjout),
+                ),
+              ),
+          ],
+        ),
+      ),
+      ),
+    );
+  }
+}

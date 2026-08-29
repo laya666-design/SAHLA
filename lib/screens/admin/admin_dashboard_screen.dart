@@ -78,14 +78,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 // Magasins
 // ---------------------------------------------------------------------------
 
-class _StoresTab extends StatelessWidget {
+class _StoresTab extends StatefulWidget {
   final AppConfig config;
   const _StoresTab({required this.config});
 
   @override
+  State<_StoresTab> createState() => _StoresTabState();
+}
+
+class _StoresTabState extends State<_StoresTab> {
+  // Même correctif que store_dashboard_screen.dart : le flux est créé
+  // une seule fois ici plutôt que dans build(), pour éviter qu'un
+  // rebuild du parent (ex: changement d'onglet, setState ailleurs) ne
+  // recrée le Stream et ne fasse repartir le StreamBuilder à zéro.
+  late final Stream<List<StoreProfile>> _storesStream =
+      AdminService.watchStores();
+
+  AppConfig get config => widget.config;
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<StoreProfile>>(
-      stream: AdminService.watchStores(),
+      stream: _storesStream,
       builder: (context, snap) {
         if (snap.hasError) {
           return Center(
@@ -403,14 +417,25 @@ class _StoreCard extends StatelessWidget {
 // Demandes
 // ---------------------------------------------------------------------------
 
-class _RequestsTab extends StatelessWidget {
+class _RequestsTab extends StatefulWidget {
   final AppConfig config;
   const _RequestsTab({required this.config});
 
   @override
+  State<_RequestsTab> createState() => _RequestsTabState();
+}
+
+class _RequestsTabState extends State<_RequestsTab> {
+  // Même correctif que store_dashboard_screen.dart.
+  late final Stream<List<PartRequest>> _requestsStream =
+      AdminService.watchRequests();
+
+  AppConfig get config => widget.config;
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<PartRequest>>(
-      stream: AdminService.watchRequests(),
+      stream: _requestsStream,
       builder: (context, snap) {
         if (snap.hasError) {
           return Center(

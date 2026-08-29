@@ -4,9 +4,35 @@ import '../../config/app_config.dart';
 import '../../services/marketplace_models.dart';
 import '../../services/marketplace_service.dart';
 
-class MesDemandesScreen extends StatelessWidget {
+class MesDemandesScreen extends StatefulWidget {
   final AppConfig config;
   const MesDemandesScreen({super.key, required this.config});
+
+  @override
+  State<MesDemandesScreen> createState() => _MesDemandesScreenState();
+}
+
+class _MesDemandesScreenState extends State<MesDemandesScreen> {
+  // IMPORTANT : même correctif que store_dashboard_screen.dart. Un
+  // StreamBuilder qui reçoit une NOUVELLE instance de Stream à chaque
+  // reconstruction repart en ConnectionState.waiting et se ré-abonne à
+  // une nouvelle requête Firestore — d'où le flux principal créé une
+  // seule fois ici (et non dans build()).
+  late final Stream<List<PartRequest>> _myRequestsStream =
+      MarketplaceService.myRequests();
+
+  // Un flux par demande (les offres), lui aussi créé une seule fois par
+  // requestId et réutilisé à chaque reconstruction de la liste, au lieu
+  // d'être recréé dans itemBuilder à chaque fois que _myRequestsStream
+  // réémet.
+  final Map<String, Stream<List<PartOffer>>> _offersStreams = {};
+
+  Stream<List<PartOffer>> _offersStreamFor(String requestId) {
+    return _offersStreams.putIfAbsent(
+        requestId, () => MarketplaceService.offersFor(requestId));
+  }
+
+  AppConfig get config => widget.config;
 
   Future<void> _call(String tel) async {
     if (tel.isEmpty) return;
@@ -71,7 +97,7 @@ class MesDemandesScreen extends StatelessWidget {
         title: const Text('Mes demandes'),
       ),
       body: StreamBuilder<List<PartRequest>>(
-        stream: MarketplaceService.myRequests(),
+        stream: _myRequestsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -123,7 +149,7 @@ class MesDemandesScreen extends StatelessWidget {
                       )
                     else
                     StreamBuilder<List<PartOffer>>(
-                      stream: MarketplaceService.offersFor(r.id),
+                      stream: _offersStreamFor(r.id),
                       builder: (context, offerSnap) {
                         final offers = offerSnap.data ?? [];
                         if (offerSnap.connectionState ==

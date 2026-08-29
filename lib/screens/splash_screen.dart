@@ -44,8 +44,9 @@ class _SplashScreenState extends State<SplashScreen> {
         _goToApp();
       });
 
-    // Sécurité : on ne reste jamais bloqué plus de 4 secondes
-    Future.delayed(const Duration(seconds: 4), _goToApp);
+    // Sécurité : on ne reste jamais bloqué plus de 8 secondes
+    // (la vidéo VROUM fait ~6 s)
+    Future.delayed(const Duration(seconds: 8), _goToApp);
   }
 
   void _onVideoUpdate() {
@@ -99,14 +100,21 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Center(
-        child: _initialized
-            ? AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: VideoPlayer(_controller),
-              )
-            : const CircularProgressIndicator(color: Color(0xFF00C853)),
-      ),
+      body: _initialized
+          ? SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: SizedBox(
+                  width: _controller.value.size.width,
+                  height: _controller.value.size.height,
+                  child: VideoPlayer(_controller),
+                ),
+              ),
+            )
+          : const Center(
+              child: CircularProgressIndicator(color: Color(0xFF00C853)),
+            ),
     );
   }
 }
+

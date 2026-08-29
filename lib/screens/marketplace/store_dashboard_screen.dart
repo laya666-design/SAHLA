@@ -146,6 +146,44 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
         if (profileSnap.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
+        // DEBUG TEMPORAIRE : avant, une erreur de lecture du profil
+        // (permission-denied si l'ID du document ne correspond pas
+        // exactement à l'UID connecté, etc.) était confondue avec un
+        // profil simplement inexistant et affichait "Profil introuvable"
+        // sans aucune indication. On distingue maintenant les deux cas.
+        if (profileSnap.hasError) {
+          return Scaffold(
+            appBar: AppBar(
+              backgroundColor: widget.config.primaryColor,
+              foregroundColor: Colors.white,
+              title: const Text('Espace Pro'),
+              actions: [IconButton(onPressed: _logout, icon: const Icon(Icons.logout))],
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 36),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Erreur en chargeant ton profil.',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    SelectableText(
+                      '${profileSnap.error}',
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
         final profile = profileSnap.data;
 
         return Scaffold(

@@ -42,6 +42,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.3
 
 # record 5.x tire record_linux 0.7.2, incompatible avec
 # record_platform_interface (manque startStream / hasPermission).
@@ -50,7 +51,16 @@ dev_dependencies:
 dependency_overrides:
   record_linux: ^1.1.1
 
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/icon/

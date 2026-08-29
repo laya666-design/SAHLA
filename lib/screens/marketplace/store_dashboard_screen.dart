@@ -372,31 +372,9 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                     final requests = snapshot.data!;
                                     corps = ListView.builder(
                                       padding: const EdgeInsets.all(12),
-                                      // DEBUG TEMPORAIRE : +1 pour une carte de
-                                      // test jaune fixe en position 0. Si
-                                      // même CETTE carte fixe (aucune
-                                      // dépendance à Firestore) n'apparaît
-                                      // pas à l'écran, le problème n'est pas
-                                      // dans les données mais dans le
-                                      // rendu/la mise en page de cette liste.
-                                      itemCount: requests.length + 1,
+                                      itemCount: requests.length,
                                       itemBuilder: (context, i) {
-                                        if (i == 0) {
-                                          return Container(
-                                            color: Colors.yellow,
-                                            padding: const EdgeInsets.all(16),
-                                            margin: const EdgeInsets.only(bottom: 10),
-                                            child: const Text(
-                                              'MARQUEUR DE TEST — si tu vois ce '
-                                              'bloc jaune, la liste s\'affiche '
-                                              'normalement.',
-                                              style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontWeight: FontWeight.bold),
-                                            ),
-                                          );
-                                        }
-                                        final r = requests[i - 1];
+                                        final r = requests[i];
                                         // DEBUG TEMPORAIRE : si la construction
                                         // d'une carte plante (donnée
                                         // inattendue sur un des 21 documents,
@@ -445,53 +423,61 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
 
   Widget _carteCommande(PartRequest r) {
     return Card(
-                                          margin: const EdgeInsets.only(bottom: 10),
-                                          child: ListTile(
-                                            onTap: () => _voirPhoto(r.photoUrl),
-                                            leading: r.photoUrl.isNotEmpty
-                                                ? ClipRRect(
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    child: Image.network(r.photoUrl,
-                                                        width: 48, height: 48, fit: BoxFit.cover),
-                                                  )
-                                                : const Icon(Icons.build),
-                                            title: Text(r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom),
-                                            subtitle: Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    r.reference.isNotEmpty
-                                                        ? 'Réf: ${r.reference}'
-                                                        : (r.compatibilite.isNotEmpty ? r.compatibilite.join(', ') : ''),
-                                                    style: const TextStyle(fontSize: 12),
-                                                  ),
-                                                ),
-                                                if (r.aUneNoteVocale)
-                                                  InkWell(
-                                                    onTap: () => _ecouterNoteVocale(
-                                                        r.noteVocaleUrl!),
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(4),
-                                                      child: Icon(
-                                                        _noteVocaleEnCours ==
-                                                                r.noteVocaleUrl
-                                                            ? Icons.pause_circle
-                                                            : Icons
-                                                                .play_circle_outline,
-                                                        size: 20,
-                                                        color: widget
-                                                            .config.primaryColor,
-                                                      ),
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                            trailing: FilledButton(
-                                              onPressed: () => _repondre(r),
-                                              child: const Text('Répondre'),
-                                            ),
-                                          ),
-                                        );
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 2,
+      color: Colors.white,
+      child: ListTile(
+        onTap: () => _voirPhoto(r.photoUrl),
+        leading: r.photoUrl.isNotEmpty
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  r.photoUrl,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Icon(Icons.broken_image_outlined),
+                  ),
+                ),
+              )
+            : const Icon(Icons.build),
+        title: Text(r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom),
+        subtitle: Row(
+          children: [
+            Expanded(
+              child: Text(
+                r.reference.isNotEmpty
+                    ? 'Réf: ${r.reference}'
+                    : (r.compatibilite.isNotEmpty
+                        ? r.compatibilite.join(', ')
+                        : ''),
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            if (r.aUneNoteVocale)
+              InkWell(
+                onTap: () => _ecouterNoteVocale(r.noteVocaleUrl!),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    _noteVocaleEnCours == r.noteVocaleUrl
+                        ? Icons.pause_circle
+                        : Icons.play_circle_outline,
+                    size: 20,
+                    color: widget.config.primaryColor,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        trailing: FilledButton(
+          onPressed: () => _repondre(r),
+          child: const Text('Répondre'),
+        ),
+      ),
+    );
   }
 }

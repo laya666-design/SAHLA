@@ -100,7 +100,19 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
         ),
       );
     } catch (e) {
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      final raw = e.toString();
+      // ApiException: 10 = DEVELOPER_ERROR → SHA-1 manquant dans Firebase
+      String msg;
+      if (raw.contains('ApiException: 10') || raw.contains('sign_in_failed')) {
+        msg = 'Connexion Google indisponible pour le moment.\n'
+            'Utilise le téléphone ou l’e-mail, ou contacte le support '
+            '(config SHA-1 Firebase à vérifier).';
+      } else if (raw.contains('annulée') || raw.contains('canceled')) {
+        msg = 'Connexion Google annulée.';
+      } else {
+        msg = raw.replaceFirst('Exception: ', '');
+      }
+      setState(() => _error = msg);
     } finally {
       if (mounted) setState(() => _googleLoading = false);
     }

@@ -282,224 +282,89 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                               child: StreamBuilder<List<PartRequest>>(
                                 stream: _openRequestsStream,
                                 builder: (context, snapshot) {
-                                  // DEBUG TEMPORAIRE
-                                  final debugText =
-                                      'DEBUG état=${snapshot.connectionState} '
-                                      'erreur=${snapshot.hasError} '
-                                      'nbDocs=${snapshot.data?.length ?? "—"}';
-
                                   if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return Column(
-                                      children: [
-                                        _debugBanner(debugText),
-                                        const Expanded(
-                                          child: Center(child: CircularProgressIndicator()),
-                                        ),
-                                      ],
-                                    );
+                                    return const Center(child: CircularProgressIndicator());
                                   }
 
                                   if (snapshot.hasError) {
-                                    return Column(
-                                      children: [
-                                        _debugBanner(debugText),
-                                        Expanded(
-                                          child: Center(
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(20),
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(Icons.error_outline,
-                                                      color: Colors.red, size: 36),
-                                                  const SizedBox(height: 12),
-                                                  const Text(
-                                                    'Impossible de charger les commandes.',
-                                                    style: TextStyle(fontWeight: FontWeight.w600),
-                                                    textAlign: TextAlign.center,
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  SelectableText(
-                                                    '${snapshot.error}',
-                                                    style: const TextStyle(
-                                                        fontSize: 12, color: Colors.black54),
-                                                    textAlign: TextAlign.center,
-                                                  ),
-                                                ],
-                                              ),
+                                    return Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(20),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.error_outline,
+                                                color: Colors.red, size: 36),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                              'Impossible de charger les commandes.',
+                                              style: TextStyle(fontWeight: FontWeight.w600),
+                                              textAlign: TextAlign.center,
                                             ),
-                                          ),
+                                            const SizedBox(height: 8),
+                                            SelectableText(
+                                              '${snapshot.error}',
+                                              style: const TextStyle(
+                                                  fontSize: 12, color: Colors.black54),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
                                         ),
-                                      ],
+                                      ),
                                     );
                                   }
 
                                   final requests = snapshot.data ?? [];
 
                                   if (requests.isEmpty) {
-                                    return Column(
-                                      children: [
-                                        _debugBanner(debugText),
-                                        Expanded(
-                                          child: Center(
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(24),
-                                              child: Container(
-                                                padding: const EdgeInsets.all(20),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(16),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.black.withOpacity(0.08),
-                                                      blurRadius: 10,
-                                                      offset: const Offset(0, 3),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: const Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Icon(Icons.inbox_outlined,
-                                                        size: 36, color: Colors.black38),
-                                                    SizedBox(height: 10),
-                                                    Text(
-                                                      'Aucune commande pour le moment.',
-                                                      textAlign: TextAlign.center,
-                                                      style: TextStyle(
-                                                          fontWeight: FontWeight.w600,
-                                                          color: Colors.black87),
-                                                    ),
-                                                  ],
-                                                ),
+                                    return Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(20),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(16),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.08),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 3),
                                               ),
-                                            ),
+                                            ],
                                           ),
-                                        ),
-                                      ],
-                                    );
-                                  }
-
-                                  // CAS PRINCIPAL : 21 docs.
-                                  // Version ultra-défensive pour forcer
-                                  // l'affichage et voir si le ListView
-                                  // dessine bien les items.
-                                  return Column(
-                                    children: [
-                                      _debugBanner(debugText),
-                                      Expanded(
-                                        child: ColoredBox(
-                                          color: const Color(0xF2FFFFFF), // ~95% blanc
-                                          child: ListView.separated(
-                                            padding: const EdgeInsets.all(12),
-                                            itemCount: requests.length,
-                                            separatorBuilder: (_, __) =>
-                                                const SizedBox(height: 8),
-                                            itemBuilder: (context, i) {
-                                              final r = requests[i];
-                                              // Carte minimale TOUJOURS visible
-                                              // (pas d'Image.network, pas de
-                                              // ListTile complexe) pour
-                                              // confirmer que le ListView
-                                              // fonctionne.
-                                              return Material(
-                                                color: Colors.white,
-                                                elevation: 2,
-                                                borderRadius: BorderRadius.circular(10),
-                                                child: InkWell(
-                                                  onTap: () {
-                                                    try {
-                                                      _repondre(r);
-                                                    } catch (_) {}
-                                                  },
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.symmetric(
-                                                        horizontal: 14, vertical: 12),
-                                                    child: Row(
-                                                      children: [
-                                                        CircleAvatar(
-                                                          backgroundColor:
-                                                              widget.config.primaryColor
-                                                                  .withOpacity(0.15),
-                                                          child: Text(
-                                                            '${i + 1}',
-                                                            style: TextStyle(
-                                                              color: widget
-                                                                  .config.primaryColor,
-                                                              fontWeight: FontWeight.bold,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 12),
-                                                        Expanded(
-                                                          child: Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment.start,
-                                                            children: [
-                                                              Text(
-                                                                r.pieceNom.isEmpty
-                                                                    ? 'Pièce #${r.id.substring(0, r.id.length > 8 ? 8 : r.id.length)}'
-                                                                    : r.pieceNom,
-                                                                style: const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight.w600,
-                                                                  fontSize: 15,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow.ellipsis,
-                                                              ),
-                                                              const SizedBox(height: 2),
-                                                              Text(
-                                                                r.reference.isNotEmpty
-                                                                    ? 'Réf: ${r.reference}'
-                                                                    : (r.compatibilite
-                                                                            .isNotEmpty
-                                                                        ? r.compatibilite
-                                                                            .join(', ')
-                                                                        : 'Sans référence'),
-                                                                style: const TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: Colors.black54,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow.ellipsis,
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 8),
-                                                        FilledButton(
-                                                          onPressed: () {
-                                                            try {
-                                                              _repondre(r);
-                                                            } catch (_) {}
-                                                          },
-                                                          style: FilledButton.styleFrom(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                    horizontal: 12,
-                                                                    vertical: 8),
-                                                            minimumSize: Size.zero,
-                                                            tapTargetSize:
-                                                                MaterialTapTargetSize
-                                                                    .shrinkWrap,
-                                                          ),
-                                                          child: const Text('Répondre',
-                                                              style: TextStyle(fontSize: 13)),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            },
+                                          child: const Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.inbox_outlined,
+                                                  size: 36, color: Colors.black38),
+                                              SizedBox(height: 10),
+                                              Text(
+                                                'Aucune commande pour le moment.',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.black87),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
-                                    ],
+                                    );
+                                  }
+
+                                  // Liste des commandes
+                                  return ColoredBox(
+                                    color: const Color(0xF2FFFFFF),
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                                      itemCount: requests.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 8),
+                                      itemBuilder: (context, i) {
+                                        return _carteCommande(requests[i]);
+                                      },
+                                    ),
                                   );
                                 },
                               ),
@@ -512,77 +377,106 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     );
   }
 
-  Widget _debugBanner(String text) {
-    return Container(
-      width: double.infinity,
-      color: Colors.black87,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontSize: 10),
-      ),
-    );
-  }
-
   Widget _carteCommande(PartRequest r) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 3,
+    final sousTitre = r.reference.isNotEmpty
+        ? 'Réf: ${r.reference}'
+        : (r.compatibilite.isNotEmpty
+            ? r.compatibilite.join(', ')
+            : 'Sans référence');
+
+    return Material(
       color: Colors.white,
-      surfaceTintColor: Colors.white,
-      child: ListTile(
-        onTap: () => _voirPhoto(r.photoUrl),
-        leading: r.photoUrl.isNotEmpty
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Image.network(
-                  r.photoUrl,
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox(
+      elevation: 2,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: () {
+          if (r.photoUrl.isNotEmpty) _voirPhoto(r.photoUrl);
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              // Photo ou icône
+              if (r.photoUrl.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    r.photoUrl,
                     width: 48,
                     height: 48,
-                    child: Icon(Icons.broken_image_outlined),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 48,
+                      height: 48,
+                      color: widget.config.primaryColor.withOpacity(0.12),
+                      child: Icon(Icons.build,
+                          color: widget.config.primaryColor, size: 22),
+                    ),
                   ),
+                )
+              else
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: widget.config.primaryColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.build,
+                      color: widget.config.primaryColor, size: 22),
                 ),
-              )
-            : const Icon(Icons.build),
-        title: Text(
-          r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Row(
-          children: [
-            Expanded(
-              child: Text(
-                r.reference.isNotEmpty
-                    ? 'Réf: ${r.reference}'
-                    : (r.compatibilite.isNotEmpty
-                        ? r.compatibilite.join(', ')
-                        : ''),
-                style: const TextStyle(fontSize: 12),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      sousTitre,
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (r.aUneNoteVocale)
-              InkWell(
-                onTap: () => _ecouterNoteVocale(r.noteVocaleUrl!),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
+              if (r.aUneNoteVocale) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  onPressed: () => _ecouterNoteVocale(r.noteVocaleUrl!),
+                  icon: Icon(
                     _noteVocaleEnCours == r.noteVocaleUrl
                         ? Icons.pause_circle
                         : Icons.play_circle_outline,
-                    size: 20,
                     color: widget.config.primaryColor,
                   ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 ),
+              ],
+              const SizedBox(width: 4),
+              FilledButton(
+                onPressed: () => _repondre(r),
+                style: FilledButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Répondre', style: TextStyle(fontSize: 13)),
               ),
-          ],
-        ),
-        trailing: FilledButton(
-          onPressed: () => _repondre(r),
-          child: const Text('Répondre'),
+            ],
+          ),
         ),
       ),
     );

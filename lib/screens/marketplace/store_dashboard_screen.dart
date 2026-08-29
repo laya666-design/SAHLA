@@ -149,25 +149,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(
-                      controller: prixController,
-                      keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Prix (DA)'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: stockController,
-                      decoration: const InputDecoration(
-                          labelText: 'Disponibilité (ex: En stock)'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: messageController,
-                      decoration: const InputDecoration(
-                          labelText: 'Message (optionnel)'),
-                    ),
-                    const SizedBox(height: 16),
+                    // Note vocale EN HAUT
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -230,6 +212,28 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                   size: 20, color: Colors.black45),
                             ),
                         ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: prixController,
+                      keyboardType: TextInputType.number,
+                      decoration:
+                          const InputDecoration(labelText: 'Prix (DA)'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: stockController,
+                      decoration: const InputDecoration(
+                          labelText: 'Disponibilité (ex: En stock)'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: messageController,
+                      decoration: const InputDecoration(
+                        labelText: 'Localisation',
+                        hintText: 'Ex: El Bouni, près de la gare',
+                        prefixIcon: Icon(Icons.location_on_outlined),
                       ),
                     ),
                   ],

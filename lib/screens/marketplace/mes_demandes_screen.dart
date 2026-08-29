@@ -15,7 +15,9 @@ class MesDemandesScreen extends StatefulWidget {
 
 class _MesDemandesScreenState extends State<MesDemandesScreen> {
   final _player = AudioPlayer();
-  String? _noteEnCours; // url de la note en lecture
+  String? _noteEnCours;
+  /// IDs des demandes ouvertes — pour ne pas les refermer au setState (play).
+  final Set<String> _ouvertes = {};
 
   @override
   void dispose() {
@@ -90,6 +92,47 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
     }
   }
 
+  Widget _bandeauNoteVocale(PartOffer o) {
+    if (!o.aUneNoteVocale) return const SizedBox.shrink();
+    final enCours = _noteEnCours == o.noteVocaleUrl;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Material(
+        color: widget.config.primaryColor.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: () => _ecouterNote(o.noteVocaleUrl!),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Icon(
+                  enCours ? Icons.pause_circle : Icons.play_circle_filled,
+                  color: widget.config.primaryColor,
+                  size: 28,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    enCours
+                        ? 'Lecture en cours…'
+                        : 'Note vocale du magasin — appuyer pour écouter',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: widget.config.primaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,9 +166,23 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
             itemCount: requests.length,
             itemBuilder: (context, i) {
               final r = requests[i];
+              final isOpen = _ouvertes.contains(r.id);
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 child: ExpansionTile(
+                  // Clé stable + état mémorisé → ne se referme pas au play
+                  key: PageStorageKey('demande_${r.id}'),
+                  maintainState: true,
+                  initiallyExpanded: isOpen,
+                  onExpansionChanged: (open) {
+                    setState(() {
+                      if (open) {
+                        _ouvertes.add(r.id);
+                      } else {
+                        _ouvertes.remove(r.id);
+                      }
+                    });
+                  },
                   leading: r.photoUrl.isNotEmpty
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(6),
@@ -181,8 +238,11 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                                   ? (o.message.isEmpty ? '' : o.message)
                                   : '${o.stock}${o.message.isNotEmpty ? ' — ${o.message}' : ''}';
                               return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.stretch,
                                 children: [
+                                  // Vocal EN HAUT de l'offre
+                                  _bandeauNoteVocale(o),
                                   ListTile(
                                     title: Text(
                                       o.storeNom.isEmpty
@@ -191,7 +251,11 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w600),
                                     ),
-                                    subtitle: Text(sousTitre),
+                                    subtitle: Text(
+                                      sousTitre.isEmpty
+                                          ? 'Sans précision'
+                                          : sousTitre,
+                                    ),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -220,58 +284,6 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                                       ],
                                     ),
                                   ),
-                                  // Note vocale du magasin — bien visible
-                                  if (o.aUneNoteVocale)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          16, 0, 16, 12),
-                                      child: Material(
-                                        color: widget.config.primaryColor
-                                            .withOpacity(0.08),
-                                        borderRadius:
-                                            BorderRadius.circular(10),
-                                        child: InkWell(
-                                          onTap: () =>
-                                              _ecouterNote(o.noteVocaleUrl!),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 10),
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  _noteEnCours ==
-                                                          o.noteVocaleUrl
-                                                      ? Icons.pause_circle
-                                                      : Icons
-                                                          .play_circle_filled,
-                                                  color: widget
-                                                      .config.primaryColor,
-                                                  size: 28,
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Text(
-                                                    _noteEnCours ==
-                                                            o.noteVocaleUrl
-                                                        ? 'Lecture en cours…'
-                                                        : 'Note vocale du magasin — appuyer pour écouter',
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      color: widget
-                                                          .config.primaryColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
                                 ],
                               );
                             }).toList(),

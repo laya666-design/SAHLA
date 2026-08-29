@@ -372,9 +372,31 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                     final requests = snapshot.data!;
                                     corps = ListView.builder(
                                       padding: const EdgeInsets.all(12),
-                                      itemCount: requests.length,
+                                      // DEBUG TEMPORAIRE : +1 pour une carte de
+                                      // test jaune fixe en position 0. Si
+                                      // même CETTE carte fixe (aucune
+                                      // dépendance à Firestore) n'apparaît
+                                      // pas à l'écran, le problème n'est pas
+                                      // dans les données mais dans le
+                                      // rendu/la mise en page de cette liste.
+                                      itemCount: requests.length + 1,
                                       itemBuilder: (context, i) {
-                                        final r = requests[i];
+                                        if (i == 0) {
+                                          return Container(
+                                            color: Colors.yellow,
+                                            padding: const EdgeInsets.all(16),
+                                            margin: const EdgeInsets.only(bottom: 10),
+                                            child: const Text(
+                                              'MARQUEUR DE TEST — si tu vois ce '
+                                              'bloc jaune, la liste s\'affiche '
+                                              'normalement.',
+                                              style: TextStyle(
+                                                  color: Colors.black,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          );
+                                        }
+                                        final r = requests[i - 1];
                                         // DEBUG TEMPORAIRE : si la construction
                                         // d'une carte plante (donnée
                                         // inattendue sur un des 21 documents,

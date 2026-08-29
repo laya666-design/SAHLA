@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'config/app_config.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_profile_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/notification_service.dart';
 import 'services/store_service.dart';
@@ -69,16 +70,9 @@ class _AjalakAppState extends State<AjalakApp> {
           ],
           supportedLocales: const [Locale('fr'), Locale('ar')],
           theme: AppTheme.light(config),
-          // Tant que le profil véhicule (voiture/moto/les deux) n'a pas
-          // été choisi, on bloque l'accès au reste de l'app derrière
-          // l'onboarding — voir SettingsService.vehicleProfile.
-          home: _profileChosen
-              ? HomeScreen(config: config, isAr: isAr)
-              : OnboardingProfileScreen(
-                  config: config,
-                  isAr: isAr,
-                  onChosen: _chooseProfile,
-                ),
+          // Splash vidéo de la roue qui tourne (plein écran) au lancement,
+          // puis on enchaîne vers l'onboarding ou l'accueil selon le profil.
+          home: SplashScreen(config: config, isAr: isAr),
         );
       },
     );

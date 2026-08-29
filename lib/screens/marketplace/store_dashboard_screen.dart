@@ -72,11 +72,13 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     final messageController = TextEditingController();
 
     final recorder = AudioRecorder();
-    File? noteVocale;
+    // Holder mutable pour éviter les soucis de closure avec StatefulBuilder
+    final hold = _NoteHold();
     bool enregistrement = false;
     int duree = 0;
     DateTime? debut;
     bool envoiEnCours = false;
+    String? cheminEnCours; // path du fichier en cours d'enregistrement
 
     final ok = await showDialog<bool>(
       context: context,
@@ -84,13 +86,24 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
+            Future<void> arreterEtCapturer() async {
+              if (!enregistrement) return;
+              final path = await recorder.stop();
+              final file = (path != null && path.isNotEmpty) ? File(path) : null;
+              // Vérifie que le fichier existe vraiment sur disque
+              final okFile = file != null && await file.exists();
+              setLocal(() {
+                enregistrement = false;
+                hold.file = okFile ? file : null;
+                if (okFile && duree == 0 && debut != null) {
+                  duree = DateTime.now().difference(debut!).inSeconds;
+                }
+              });
+            }
+
             Future<void> basculerEnregistrement() async {
               if (enregistrement) {
-                final path = await recorder.stop();
-                setLocal(() {
-                  enregistrement = false;
-                  noteVocale = path != null ? File(path) : null;
-                });
+                await arreterEtCapturer();
                 return;
               }
               final autorise = await recorder.hasPermission();
@@ -105,14 +118,14 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
               final dir = await getTemporaryDirectory();
               final path =
                   '${dir.path}/offre_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+              cheminEnCours = path;
               await recorder.start(const RecordConfig(), path: path);
               debut = DateTime.now();
               setLocal(() {
                 enregistrement = true;
                 duree = 0;
-                noteVocale = null;
+                hold.file = null;
               });
-              // Suivi durée (max 30 s)
               while (enregistrement && ctx.mounted) {
                 await Future.delayed(const Duration(seconds: 1));
                 if (!enregistrement || !ctx.mounted) return;
@@ -121,7 +134,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                     : DateTime.now().difference(debut!).inSeconds;
                 setLocal(() => duree = ecoule);
                 if (ecoule >= 30) {
-                  await basculerEnregistrement();
+                  await arreterEtCapturer();
                   return;
                 }
               }
@@ -155,15 +168,20 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                           labelText: 'Message (optionnel)'),
                     ),
                     const SizedBox(height: 16),
-                    // Note vocale
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: hold.file != null
+                            ? widget.config.primaryColor.withOpacity(0.08)
+                            : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(
+                          color: hold.file != null
+                              ? widget.config.primaryColor.withOpacity(0.4)
+                              : Colors.grey.shade300,
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -183,24 +201,29 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                           Expanded(
                             child: Text(
                               enregistrement
-                                  ? 'Enregistrement… ${duree}s'
-                                  : (noteVocale != null
-                                      ? 'Note vocale prête (${duree > 0 ? duree : "?"}s)'
+                                  ? 'Enregistrement… ${duree}s — appuie sur stop'
+                                  : (hold.file != null
+                                      ? '✓ Note vocale prête (${duree}s)'
                                       : 'Note vocale (optionnel)'),
                               style: TextStyle(
                                 fontSize: 13,
+                                fontWeight: hold.file != null
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
                                 color: enregistrement
                                     ? Colors.red
-                                    : Colors.black54,
+                                    : (hold.file != null
+                                        ? widget.config.primaryColor
+                                        : Colors.black54),
                               ),
                             ),
                           ),
-                          if (noteVocale != null && !enregistrement)
+                          if (hold.file != null && !enregistrement)
                             IconButton(
                               onPressed: envoiEnCours
                                   ? null
                                   : () => setLocal(() {
-                                        noteVocale = null;
+                                        hold.file = null;
                                         duree = 0;
                                       }),
                               icon: const Icon(Icons.delete_outline,
@@ -217,7 +240,11 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                   onPressed: envoiEnCours
                       ? null
                       : () async {
-                          if (enregistrement) await recorder.stop();
+                          if (enregistrement) {
+                            try {
+                              await recorder.stop();
+                            } catch (_) {}
+                          }
                           if (ctx.mounted) Navigator.pop(ctx, false);
                         },
                   child: const Text('Annuler'),
@@ -235,9 +262,18 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                             );
                             return;
                           }
+                          // TOUJOURS stopper et capturer avant l'envoi
                           if (enregistrement) {
-                            await basculerEnregistrement();
+                            await arreterEtCapturer();
                           }
+                          // Fallback : si le stop n'a pas rempli hold.file
+                          // mais qu'un chemin était connu
+                          if (hold.file == null &&
+                              cheminEnCours != null) {
+                            final f = File(cheminEnCours!);
+                            if (await f.exists()) hold.file = f;
+                          }
+
                           setLocal(() => envoiEnCours = true);
                           try {
                             await StoreService.respondToRequest(
@@ -245,7 +281,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                               prix: prix,
                               stock: stockController.text.trim(),
                               message: messageController.text.trim(),
-                              noteVocale: noteVocale,
+                              noteVocale: hold.file,
                             );
                             if (ctx.mounted) Navigator.pop(ctx, true);
                           } catch (e) {
@@ -280,7 +316,11 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     if (ok != true) return;
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Réponse envoyée au client.')),
+      SnackBar(
+        content: Text(hold.file != null
+            ? 'Réponse + note vocale envoyées au client.'
+            : 'Réponse envoyée au client.'),
+      ),
     );
   }
 
@@ -651,3 +691,10 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     );
   }
 }
+
+/// Petit conteneur mutable pour le fichier audio (évite les pièges
+/// de closure dans StatefulBuilder).
+class _NoteHold {
+  File? file;
+}
+

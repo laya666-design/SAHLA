@@ -81,6 +81,9 @@ class PartOffer {
   final num prix;
   final String stock; // ex: "En stock", "2-3 jours"
   final String message;
+  // Note vocale optionnelle jointe par le magasin (ex: précision sur
+  // l'état de la pièce, alternative disponible...). Null si absente.
+  final String? noteVocaleUrl;
   final DateTime dateReponse;
 
   PartOffer({
@@ -91,8 +94,12 @@ class PartOffer {
     required this.prix,
     required this.stock,
     required this.message,
+    this.noteVocaleUrl,
     required this.dateReponse,
   });
+
+  bool get aUneNoteVocale =>
+      noteVocaleUrl != null && noteVocaleUrl!.isNotEmpty;
 
   factory PartOffer.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
@@ -104,6 +111,7 @@ class PartOffer {
       prix: (d['prix'] is num) ? d['prix'] as num : 0,
       stock: d['stock']?.toString() ?? '',
       message: d['message']?.toString() ?? '',
+      noteVocaleUrl: d['noteVocaleUrl']?.toString(),
       dateReponse:
           (d['dateReponse'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -116,6 +124,8 @@ class PartOffer {
         'prix': prix,
         'stock': stock,
         'message': message,
+        if (noteVocaleUrl != null && noteVocaleUrl!.isNotEmpty)
+          'noteVocaleUrl': noteVocaleUrl,
         'dateReponse': FieldValue.serverTimestamp(),
       };
 }

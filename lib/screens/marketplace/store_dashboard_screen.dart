@@ -380,36 +380,121 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                     );
                                   }
 
-                                  // CAS PRINCIPAL : 21 docs → on force un
-                                  // fond semi-opaque + ListView pour être
-                                  // sûr que les cartes sont visibles.
+                                  // CAS PRINCIPAL : 21 docs.
+                                  // Version ultra-défensive pour forcer
+                                  // l'affichage et voir si le ListView
+                                  // dessine bien les items.
                                   return Column(
                                     children: [
                                       _debugBanner(debugText),
                                       Expanded(
-                                        child: Container(
-                                          color: Colors.white.withOpacity(0.85),
-                                          child: ListView.builder(
+                                        child: ColoredBox(
+                                          color: const Color(0xF2FFFFFF), // ~95% blanc
+                                          child: ListView.separated(
                                             padding: const EdgeInsets.all(12),
                                             itemCount: requests.length,
+                                            separatorBuilder: (_, __) =>
+                                                const SizedBox(height: 8),
                                             itemBuilder: (context, i) {
                                               final r = requests[i];
-                                              try {
-                                                return _carteCommande(r);
-                                              } catch (e, st) {
-                                                return Card(
-                                                  color: Colors.red.shade50,
-                                                  margin: const EdgeInsets.only(bottom: 10),
+                                              // Carte minimale TOUJOURS visible
+                                              // (pas d'Image.network, pas de
+                                              // ListTile complexe) pour
+                                              // confirmer que le ListView
+                                              // fonctionne.
+                                              return Material(
+                                                color: Colors.white,
+                                                elevation: 2,
+                                                borderRadius: BorderRadius.circular(10),
+                                                child: InkWell(
+                                                  onTap: () {
+                                                    try {
+                                                      _repondre(r);
+                                                    } catch (_) {}
+                                                  },
+                                                  borderRadius: BorderRadius.circular(10),
                                                   child: Padding(
-                                                    padding: const EdgeInsets.all(12),
-                                                    child: Text(
-                                                      'Erreur d\'affichage sur ${r.id} : $e\n$st',
-                                                      style: const TextStyle(
-                                                          fontSize: 11, color: Colors.red),
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 14, vertical: 12),
+                                                    child: Row(
+                                                      children: [
+                                                        CircleAvatar(
+                                                          backgroundColor:
+                                                              widget.config.primaryColor
+                                                                  .withOpacity(0.15),
+                                                          child: Text(
+                                                            '${i + 1}',
+                                                            style: TextStyle(
+                                                              color: widget
+                                                                  .config.primaryColor,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 12),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment.start,
+                                                            children: [
+                                                              Text(
+                                                                r.pieceNom.isEmpty
+                                                                    ? 'Pièce #${r.id.substring(0, r.id.length > 8 ? 8 : r.id.length)}'
+                                                                    : r.pieceNom,
+                                                                style: const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight.w600,
+                                                                  fontSize: 15,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow.ellipsis,
+                                                              ),
+                                                              const SizedBox(height: 2),
+                                                              Text(
+                                                                r.reference.isNotEmpty
+                                                                    ? 'Réf: ${r.reference}'
+                                                                    : (r.compatibilite
+                                                                            .isNotEmpty
+                                                                        ? r.compatibilite
+                                                                            .join(', ')
+                                                                        : 'Sans référence'),
+                                                                style: const TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: Colors.black54,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow.ellipsis,
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 8),
+                                                        FilledButton(
+                                                          onPressed: () {
+                                                            try {
+                                                              _repondre(r);
+                                                            } catch (_) {}
+                                                          },
+                                                          style: FilledButton.styleFrom(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                    horizontal: 12,
+                                                                    vertical: 8),
+                                                            minimumSize: Size.zero,
+                                                            tapTargetSize:
+                                                                MaterialTapTargetSize
+                                                                    .shrinkWrap,
+                                                          ),
+                                                          child: const Text('Répondre',
+                                                              style: TextStyle(fontSize: 13)),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
-                                                );
-                                              }
+                                                ),
+                                              );
                                             },
                                           ),
                                         ),

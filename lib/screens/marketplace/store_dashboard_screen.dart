@@ -375,7 +375,54 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                       itemCount: requests.length,
                                       itemBuilder: (context, i) {
                                         final r = requests[i];
-                                        return Card(
+                                        // DEBUG TEMPORAIRE : si la construction
+                                        // d'une carte plante (donnée
+                                        // inattendue sur un des 21 documents,
+                                        // par ex.), en release Flutter
+                                        // n'affiche RIEN pour cet item au lieu
+                                        // d'un écran d'erreur rouge — d'où un
+                                        // dashboard qui semblait vide alors
+                                        // que nbDocs > 0. On intercepte pour
+                                        // le voir.
+                                        try {
+                                          return _carteCommande(r);
+                                        } catch (e) {
+                                          return Card(
+                                            color: Colors.red.shade50,
+                                            margin: const EdgeInsets.only(bottom: 10),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(12),
+                                              child: Text(
+                                                'Erreur d\'affichage sur la demande '
+                                                '${r.id} : $e',
+                                                style: const TextStyle(fontSize: 11, color: Colors.red),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    );
+                                  }
+
+                                  return Column(
+                                    children: [
+                                      debugBanner,
+                                      Expanded(child: corps),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _carteCommande(PartRequest r) {
+    return Card(
                                           margin: const EdgeInsets.only(bottom: 10),
                                           child: ListTile(
                                             onTap: () => _voirPhoto(r.photoUrl),
@@ -424,24 +471,5 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                             ),
                                           ),
                                         );
-                                      },
-                                    );
-                                  }
-
-                                  return Column(
-                                    children: [
-                                      debugBanner,
-                                      Expanded(child: corps),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-          ),
-        );
-      },
-    );
   }
 }

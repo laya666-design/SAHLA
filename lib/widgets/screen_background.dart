@@ -103,7 +103,12 @@ class ScreenBackground extends StatelessWidget {
             ),
           ),
         ),
-        child,
+        // IMPORTANT : sans Positioned.fill, le child (souvent un Column
+        // avec Expanded) ne reçoit pas de contraintes de hauteur serrées
+        // et l'Expanded du ListView se retrouve avec une hauteur de 0 →
+        // liste invisible alors que nbDocs > 0 (cas vu sur le dashboard
+        // magasin).
+        Positioned.fill(child: child),
       ],
     );
   }

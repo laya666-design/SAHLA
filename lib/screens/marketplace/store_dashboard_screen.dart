@@ -275,139 +275,145 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                 ],
                               ),
                             ),
+                            // StreamBuilder isolé : plus de Column+Expanded
+                            // imbriqués (cause possible de hauteur 0 sur la
+                            // liste malgré nbDocs > 0).
                             Expanded(
                               child: StreamBuilder<List<PartRequest>>(
                                 stream: _openRequestsStream,
                                 builder: (context, snapshot) {
-                                  // DEBUG TEMPORAIRE : à retirer une fois le
-                                  // problème confirmé résolu. Affiche l'état
-                                  // exact du flux en toutes lettres, pour ne
-                                  // plus jamais se retrouver avec un écran
-                                  // "vide" sans savoir pourquoi.
-                                  final debugBanner = Container(
-                                    width: double.infinity,
-                                    color: Colors.black87,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    child: Text(
+                                  // DEBUG TEMPORAIRE
+                                  final debugText =
                                       'DEBUG état=${snapshot.connectionState} '
                                       'erreur=${snapshot.hasError} '
-                                      'nbDocs=${snapshot.data?.length ?? "—"}',
-                                      style: const TextStyle(
-                                          color: Colors.white, fontSize: 10),
-                                    ),
-                                  );
+                                      'nbDocs=${snapshot.data?.length ?? "—"}';
 
-                                  Widget corps;
                                   if (snapshot.connectionState == ConnectionState.waiting) {
-                                    corps = const Center(child: CircularProgressIndicator());
-                                  } else if (snapshot.hasError) {
-                                    // Avant : une erreur ici (index Firestore
-                                    // manquant, permission refusée, document
-                                    // malformé...) était silencieusement
-                                    // avalée et affichait juste "Aucune
-                                    // commande" — impossible à diagnostiquer.
-                                    // On affiche maintenant le vrai message.
-                                    corps = Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(20),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.error_outline,
-                                                color: Colors.red, size: 36),
-                                            const SizedBox(height: 12),
-                                            const Text(
-                                              'Impossible de charger les commandes.',
-                                              style: TextStyle(fontWeight: FontWeight.w600),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                            const SizedBox(height: 8),
-                                            SelectableText(
-                                              '${snapshot.error}',
-                                              style: const TextStyle(
-                                                  fontSize: 12, color: Colors.black54),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ],
+                                    return Column(
+                                      children: [
+                                        _debugBanner(debugText),
+                                        const Expanded(
+                                          child: Center(child: CircularProgressIndicator()),
                                         ),
-                                      ),
-                                    );
-                                  } else if ((snapshot.data ?? []).isEmpty) {
-                                    corps = Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(24),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(20),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(16),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.08),
-                                                blurRadius: 10,
-                                                offset: const Offset(0, 3),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.inbox_outlined,
-                                                  size: 36, color: Colors.black38),
-                                              const SizedBox(height: 10),
-                                              const Text(
-                                                'Aucune commande pour le moment.',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.black87),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  } else {
-                                    final requests = snapshot.data!;
-                                    corps = ListView.builder(
-                                      padding: const EdgeInsets.all(12),
-                                      itemCount: requests.length,
-                                      itemBuilder: (context, i) {
-                                        final r = requests[i];
-                                        // DEBUG TEMPORAIRE : si la construction
-                                        // d'une carte plante (donnée
-                                        // inattendue sur un des 21 documents,
-                                        // par ex.), en release Flutter
-                                        // n'affiche RIEN pour cet item au lieu
-                                        // d'un écran d'erreur rouge — d'où un
-                                        // dashboard qui semblait vide alors
-                                        // que nbDocs > 0. On intercepte pour
-                                        // le voir.
-                                        try {
-                                          return _carteCommande(r);
-                                        } catch (e) {
-                                          return Card(
-                                            color: Colors.red.shade50,
-                                            margin: const EdgeInsets.only(bottom: 10),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(12),
-                                              child: Text(
-                                                'Erreur d\'affichage sur la demande '
-                                                '${r.id} : $e',
-                                                style: const TextStyle(fontSize: 11, color: Colors.red),
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      },
+                                      ],
                                     );
                                   }
 
+                                  if (snapshot.hasError) {
+                                    return Column(
+                                      children: [
+                                        _debugBanner(debugText),
+                                        Expanded(
+                                          child: Center(
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(20),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.error_outline,
+                                                      color: Colors.red, size: 36),
+                                                  const SizedBox(height: 12),
+                                                  const Text(
+                                                    'Impossible de charger les commandes.',
+                                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  SelectableText(
+                                                    '${snapshot.error}',
+                                                    style: const TextStyle(
+                                                        fontSize: 12, color: Colors.black54),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  final requests = snapshot.data ?? [];
+
+                                  if (requests.isEmpty) {
+                                    return Column(
+                                      children: [
+                                        _debugBanner(debugText),
+                                        Expanded(
+                                          child: Center(
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(24),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(20),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(16),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withOpacity(0.08),
+                                                      blurRadius: 10,
+                                                      offset: const Offset(0, 3),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: const Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.inbox_outlined,
+                                                        size: 36, color: Colors.black38),
+                                                    SizedBox(height: 10),
+                                                    Text(
+                                                      'Aucune commande pour le moment.',
+                                                      textAlign: TextAlign.center,
+                                                      style: TextStyle(
+                                                          fontWeight: FontWeight.w600,
+                                                          color: Colors.black87),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  // CAS PRINCIPAL : 21 docs → on force un
+                                  // fond semi-opaque + ListView pour être
+                                  // sûr que les cartes sont visibles.
                                   return Column(
                                     children: [
-                                      debugBanner,
-                                      Expanded(child: corps),
+                                      _debugBanner(debugText),
+                                      Expanded(
+                                        child: Container(
+                                          color: Colors.white.withOpacity(0.85),
+                                          child: ListView.builder(
+                                            padding: const EdgeInsets.all(12),
+                                            itemCount: requests.length,
+                                            itemBuilder: (context, i) {
+                                              final r = requests[i];
+                                              try {
+                                                return _carteCommande(r);
+                                              } catch (e, st) {
+                                                return Card(
+                                                  color: Colors.red.shade50,
+                                                  margin: const EdgeInsets.only(bottom: 10),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.all(12),
+                                                    child: Text(
+                                                      'Erreur d\'affichage sur ${r.id} : $e\n$st',
+                                                      style: const TextStyle(
+                                                          fontSize: 11, color: Colors.red),
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   );
                                 },
@@ -421,11 +427,24 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     );
   }
 
+  Widget _debugBanner(String text) {
+    return Container(
+      width: double.infinity,
+      color: Colors.black87,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontSize: 10),
+      ),
+    );
+  }
+
   Widget _carteCommande(PartRequest r) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      elevation: 2,
+      elevation: 3,
       color: Colors.white,
+      surfaceTintColor: Colors.white,
       child: ListTile(
         onTap: () => _voirPhoto(r.photoUrl),
         leading: r.photoUrl.isNotEmpty
@@ -444,7 +463,10 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                 ),
               )
             : const Icon(Icons.build),
-        title: Text(r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom),
+        title: Text(
+          r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
         subtitle: Row(
           children: [
             Expanded(

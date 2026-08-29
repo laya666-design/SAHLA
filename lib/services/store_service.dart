@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cloudinary_service.dart';
+import 'location_service.dart';
 import 'marketplace_models.dart';
 
 /// Prix de l'abonnement mensuel magasin, en DA.
@@ -135,6 +136,10 @@ class StoreService {
         email: _emailTechniqueDepuisNumero(numero),
         password: password,
       );
+      // Position GPS "best effort" : si le magasin refuse la permission ou
+      // que le GPS est coupé, l'inscription continue quand même (position
+      // ajoutable plus tard depuis le dashboard via updateLocation()).
+      final position = await LocationService.getCurrentPosition();
       final profile = StoreProfile(
         uid: numero,
         nom: '',
@@ -144,6 +149,8 @@ class StoreService {
         subscriptionStatus: SubscriptionStatus.essai,
         trialEndDate:
             DateTime.now().add(const Duration(days: kEssaiGratuitJours)),
+        latitude: position.latitude,
+        longitude: position.longitude,
       );
       // Le document est stocké sous le numéro de téléphone (et non l'UID
       // Firebase Auth généré par cred.user!.uid), pour rester lisible et
@@ -292,10 +299,50 @@ class StoreService {
   }) async {
     final docId = currentStoreDocId;
     if (docId == null) throw Exception('Non connecté.');
+    final update = <String, dynamic>{'nom': nom, 'adresse': adresse};
+
+    // Si la position n'a pas pu être capturée à la création du compte
+    // (permission pas encore accordée à ce moment-là), on retente ici :
+    // c'est la dernière étape avant le dashboard, donc la dernière
+    // occasion simple de la demander pendant l'inscription.
+    final doc = await FirebaseFirestore.instance
+        .collection(_storesCollection)
+        .doc(docId)
+        .get();
+    final dejaGeolocalise =
+        (doc.data()?['latitude'] != null) && (doc.data()?['longitude'] != null);
+    if (!dejaGeolocalise) {
+      final position = await LocationService.getCurrentPosition();
+      if (position.aUnePosition) {
+        update['latitude'] = position.latitude;
+        update['longitude'] = position.longitude;
+      }
+    }
+
     await FirebaseFirestore.instance
         .collection(_storesCollection)
         .doc(docId)
-        .update({'nom': nom, 'adresse': adresse});
+        .update(update);
+  }
+
+  /// (Re)géolocalise le magasin connecté (bouton "Mettre à jour ma
+  /// position" dans le dashboard). Lance une exception avec un message
+  /// lisible si la position n'a pas pu être obtenue, pour affichage direct
+  /// à l'utilisateur (permission refusée, GPS coupé...).
+  static Future<void> updateLocation() async {
+    final docId = currentStoreDocId;
+    if (docId == null) throw Exception('Non connecté.');
+    final position = await LocationService.getCurrentPosition();
+    if (!position.aUnePosition) {
+      throw Exception(position.erreur ?? 'Position indisponible.');
+    }
+    await FirebaseFirestore.instance
+        .collection(_storesCollection)
+        .doc(docId)
+        .update({
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+    });
   }
 
   static Future<void> signUp({
@@ -309,6 +356,7 @@ class StoreService {
       email: email,
       password: password,
     );
+    final position = await LocationService.getCurrentPosition();
     final profile = StoreProfile(
       uid: cred.user!.uid,
       nom: nom,
@@ -318,6 +366,8 @@ class StoreService {
       subscriptionStatus: SubscriptionStatus.essai,
       trialEndDate:
           DateTime.now().add(const Duration(days: kEssaiGratuitJours)),
+      latitude: position.latitude,
+      longitude: position.longitude,
     );
     await FirebaseFirestore.instance
         .collection(_storesCollection)
@@ -378,6 +428,7 @@ class StoreService {
         .doc(user.uid);
     final doc = await docRef.get();
     if (!doc.exists) {
+      final position = await LocationService.getCurrentPosition();
       final profile = StoreProfile(
         uid: user.uid,
         nom: user.displayName ?? '',
@@ -387,6 +438,8 @@ class StoreService {
         subscriptionStatus: SubscriptionStatus.essai,
         trialEndDate:
             DateTime.now().add(const Duration(days: kEssaiGratuitJours)),
+        latitude: position.latitude,
+        longitude: position.longitude,
       );
       await docRef.set(profile.toMap());
     }
@@ -498,6 +551,8 @@ class StoreService {
       stock: stock,
       message: message,
       noteVocaleUrl: noteVocaleUrl,
+      storeLat: profile.latitude,
+      storeLng: profile.longitude,
       dateReponse: DateTime.now(),
     );
     await FirebaseFirestore.instance

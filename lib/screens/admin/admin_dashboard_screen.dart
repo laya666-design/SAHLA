@@ -393,6 +393,23 @@ class _StoreCard extends StatelessWidget {
               'Abo : ${store.subscriptionStatus} · ID ${store.idCourt}',
               style: const TextStyle(fontSize: 11, color: Colors.black45),
             ),
+            Row(
+              children: [
+                Icon(
+                  store.aUnePosition ? Icons.location_on : Icons.location_off,
+                  size: 13,
+                  color: store.aUnePosition ? Colors.green : Colors.orange,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  store.aUnePosition ? 'Géolocalisé' : 'Sans position GPS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: store.aUnePosition ? Colors.green : Colors.orange,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
         isThreeLine: true,

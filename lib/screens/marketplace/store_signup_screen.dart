@@ -92,6 +92,15 @@ class _StoreSignupScreenState extends State<StoreSignupScreen> {
                 controller: _adresseController,
                 decoration: const InputDecoration(labelText: 'Adresse'),
               ),
+              const SizedBox(height: 4),
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Text(
+                  'On te demandera l\'accès à ta position pour situer ton '
+                  'magasin sur la carte auprès des clients.',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: _emailController,

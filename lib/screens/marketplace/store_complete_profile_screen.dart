@@ -93,6 +93,15 @@ class _StoreCompleteProfileScreenState
                   prefixIcon: Icon(Icons.location_on_outlined),
                 ),
               ),
+              const SizedBox(height: 4),
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Text(
+                  'On va aussi te demander ta position GPS, pour te situer '
+                  'sur la carte auprès des clients.',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 Text(_error!, style: const TextStyle(color: Colors.red)),

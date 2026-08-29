@@ -84,6 +84,12 @@ class PartOffer {
   // Note vocale optionnelle jointe par le magasin (ex: précision sur
   // l'état de la pièce, alternative disponible...). Null si absente.
   final String? noteVocaleUrl;
+  // Position GPS réelle du magasin au moment de sa dernière mise à jour de
+  // position (recopiée depuis son StoreProfile), pour que l'acheteur voie
+  // où se trouve le magasin directement depuis la réponse, sans requête
+  // supplémentaire. Null si le magasin n'a pas encore de position connue.
+  final double? storeLat;
+  final double? storeLng;
   final DateTime dateReponse;
 
   PartOffer({
@@ -95,8 +101,12 @@ class PartOffer {
     required this.stock,
     required this.message,
     this.noteVocaleUrl,
+    this.storeLat,
+    this.storeLng,
     required this.dateReponse,
   });
+
+  bool get aUnePosition => storeLat != null && storeLng != null;
 
   bool get aUneNoteVocale =>
       noteVocaleUrl != null && noteVocaleUrl!.isNotEmpty;
@@ -112,6 +122,8 @@ class PartOffer {
       stock: d['stock']?.toString() ?? '',
       message: d['message']?.toString() ?? '',
       noteVocaleUrl: d['noteVocaleUrl']?.toString(),
+      storeLat: (d['storeLat'] as num?)?.toDouble(),
+      storeLng: (d['storeLng'] as num?)?.toDouble(),
       dateReponse:
           (d['dateReponse'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -126,6 +138,8 @@ class PartOffer {
         'message': message,
         if (noteVocaleUrl != null && noteVocaleUrl!.isNotEmpty)
           'noteVocaleUrl': noteVocaleUrl,
+        if (storeLat != null) 'storeLat': storeLat,
+        if (storeLng != null) 'storeLng': storeLng,
         'dateReponse': FieldValue.serverTimestamp(),
       };
 }
@@ -175,6 +189,11 @@ class StoreProfile {
   final DateTime? trialEndDate;
   final DateTime? subscriptionEndDate;
   final String? currentPlanId; // dernier forfait payé (voir kSubscriptionPlans)
+  // Position GPS réelle du magasin (capturée à l'inscription, ou mise à
+  // jour ensuite depuis le dashboard). Null tant qu'elle n'a jamais été
+  // renseignée (permission refusée à l'inscription, par ex.).
+  final double? latitude;
+  final double? longitude;
 
   StoreProfile({
     required this.uid,
@@ -187,7 +206,11 @@ class StoreProfile {
     this.trialEndDate,
     this.subscriptionEndDate,
     this.currentPlanId,
+    this.latitude,
+    this.longitude,
   });
+
+  bool get aUnePosition => latitude != null && longitude != null;
 
   /// Identifiant court du magasin à afficher dans l'app (support/admin).
   String get idCourt => uid.length > 6 ? uid.substring(0, 6).toUpperCase() : uid.toUpperCase();
@@ -231,6 +254,8 @@ class StoreProfile {
       trialEndDate: (d['trialEndDate'] as Timestamp?)?.toDate(),
       subscriptionEndDate: (d['subscriptionEndDate'] as Timestamp?)?.toDate(),
       currentPlanId: d['currentPlanId']?.toString(),
+      latitude: (d['latitude'] as num?)?.toDouble(),
+      longitude: (d['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -246,6 +271,8 @@ class StoreProfile {
         if (subscriptionEndDate != null)
           'subscriptionEndDate': Timestamp.fromDate(subscriptionEndDate!),
         if (currentPlanId != null) 'currentPlanId': currentPlanId,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
       };
 }
 

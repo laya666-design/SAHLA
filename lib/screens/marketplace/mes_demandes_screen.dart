@@ -2,6 +2,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
+import '../../services/location_service.dart';
 import '../../services/marketplace_models.dart';
 import '../../services/marketplace_service.dart';
 
@@ -19,6 +20,25 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
   /// IDs des demandes ouvertes — pour ne pas les refermer au setState (play).
   final Set<String> _ouvertes = {};
 
+  // Position de l'acheteur, chargée une seule fois à l'ouverture de l'écran,
+  // pour afficher "à X km" sous chaque réponse de magasin qui a une
+  // position connue. Reste null si le GPS/permission n'est pas disponible
+  // : la carte de la réponse s'affiche quand même, juste sans distance.
+  LocationResult? _maPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _chargerMaPosition();
+  }
+
+  Future<void> _chargerMaPosition() async {
+    final position = await LocationService.getCurrentPosition();
+    if (mounted && position.aUnePosition) {
+      setState(() => _maPosition = position);
+    }
+  }
+
   @override
   void dispose() {
     _player.dispose();
@@ -28,6 +48,23 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
   Future<void> _call(String tel) async {
     if (tel.isEmpty) return;
     await launchUrl(Uri(scheme: 'tel', path: tel));
+  }
+
+  Future<void> _voirSurLaCarte(double lat, double lng) async {
+    final uri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  /// Distance en km entre l'acheteur (si connue) et le magasin, ou null.
+  double? _distanceVers(PartOffer o) {
+    if (_maPosition == null || !o.aUnePosition) return null;
+    return LocationService.distanceKm(
+      lat1: _maPosition!.latitude!,
+      lng1: _maPosition!.longitude!,
+      lat2: o.storeLat!,
+      lng2: o.storeLng!,
+    );
   }
 
   Future<void> _ecouterNote(String url) async {
@@ -237,6 +274,7 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                               final sousTitre = o.stock.isEmpty
                                   ? (o.message.isEmpty ? '' : o.message)
                                   : '${o.stock}${o.message.isNotEmpty ? ' — ${o.message}' : ''}';
+                              final distance = _distanceVers(o);
                               return Column(
                                 crossAxisAlignment:
                                     CrossAxisAlignment.stretch,
@@ -251,11 +289,45 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w600),
                                     ),
-                                    subtitle: Text(
-                                      sousTitre.isEmpty
-                                          ? 'Sans précision'
-                                          : sousTitre,
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          sousTitre.isEmpty
+                                              ? 'Sans précision'
+                                              : sousTitre,
+                                        ),
+                                        if (o.aUnePosition)
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(top: 2),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.location_on,
+                                                    size: 14,
+                                                    color: widget
+                                                        .config.primaryColor),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  distance != null
+                                                      ? 'à $distance km de toi'
+                                                      : 'Position connue',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: widget
+                                                        .config.primaryColor,
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
                                     ),
+                                    isThreeLine: o.aUnePosition,
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -264,6 +336,15 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                                           style: const TextStyle(
                                               fontWeight: FontWeight.bold),
                                         ),
+                                        if (o.aUnePosition)
+                                          IconButton(
+                                            tooltip:
+                                                'Voir le magasin sur la carte',
+                                            icon: const Icon(Icons.map_outlined,
+                                                size: 20),
+                                            onPressed: () => _voirSurLaCarte(
+                                                o.storeLat!, o.storeLng!),
+                                          ),
                                         if (o.storeTel.isNotEmpty)
                                           IconButton(
                                             icon: const Icon(Icons.call,

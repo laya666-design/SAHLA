@@ -66,6 +66,23 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     );
   }
 
+  Future<void> _mettreAJourPosition() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Localisation en cours...')),
+    );
+    try {
+      await StoreService.updateLocation();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Position du magasin mise à jour.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
   Future<void> _repondre(PartRequest r) async {
     final prixController = TextEditingController();
     final stockController = TextEditingController();
@@ -405,6 +422,19 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
             foregroundColor: Colors.white,
             title: Text(profile?.nom.isNotEmpty == true ? profile!.nom : 'Espace Pro'),
             actions: [
+              if (profile != null)
+                IconButton(
+                  tooltip: profile.aUnePosition
+                      ? 'Mettre à jour ma position'
+                      : 'Position manquante — appuie pour la renseigner',
+                  onPressed: _mettreAJourPosition,
+                  icon: Icon(
+                    profile.aUnePosition
+                        ? Icons.location_on
+                        : Icons.location_off,
+                    color: profile.aUnePosition ? null : Colors.amber,
+                  ),
+                ),
               if (profile != null && profile.actif)
                 IconButton(
                   tooltip: 'Mon abonnement',

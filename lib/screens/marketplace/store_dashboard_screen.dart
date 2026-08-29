@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 import '../../config/app_config.dart';
 import '../../services/marketplace_models.dart';
 import '../../services/store_service.dart';
@@ -67,48 +71,213 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     final stockController = TextEditingController();
     final messageController = TextEditingController();
 
+    final recorder = AudioRecorder();
+    File? noteVocale;
+    bool enregistrement = false;
+    int duree = 0;
+    DateTime? debut;
+    bool envoiEnCours = false;
+
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Répondre — ${r.pieceNom}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: prixController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Prix (DA)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: stockController,
-              decoration: const InputDecoration(labelText: 'Disponibilité (ex: En stock)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: messageController,
-              decoration: const InputDecoration(labelText: 'Message (optionnel)'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Envoyer')),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            Future<void> basculerEnregistrement() async {
+              if (enregistrement) {
+                final path = await recorder.stop();
+                setLocal(() {
+                  enregistrement = false;
+                  noteVocale = path != null ? File(path) : null;
+                });
+                return;
+              }
+              final autorise = await recorder.hasPermission();
+              if (!autorise) {
+                if (!ctx.mounted) return;
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(
+                      content: Text('Autorisation microphone refusée.')),
+                );
+                return;
+              }
+              final dir = await getTemporaryDirectory();
+              final path =
+                  '${dir.path}/offre_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+              await recorder.start(const RecordConfig(), path: path);
+              debut = DateTime.now();
+              setLocal(() {
+                enregistrement = true;
+                duree = 0;
+                noteVocale = null;
+              });
+              // Suivi durée (max 30 s)
+              while (enregistrement && ctx.mounted) {
+                await Future.delayed(const Duration(seconds: 1));
+                if (!enregistrement || !ctx.mounted) return;
+                final ecoule = debut == null
+                    ? 0
+                    : DateTime.now().difference(debut!).inSeconds;
+                setLocal(() => duree = ecoule);
+                if (ecoule >= 30) {
+                  await basculerEnregistrement();
+                  return;
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: Text(
+                'Répondre — ${r.pieceNom}',
+                style: const TextStyle(fontSize: 17),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: prixController,
+                      keyboardType: TextInputType.number,
+                      decoration:
+                          const InputDecoration(labelText: 'Prix (DA)'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: stockController,
+                      decoration: const InputDecoration(
+                          labelText: 'Disponibilité (ex: En stock)'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: messageController,
+                      decoration: const InputDecoration(
+                          labelText: 'Message (optionnel)'),
+                    ),
+                    const SizedBox(height: 16),
+                    // Note vocale
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            onPressed:
+                                envoiEnCours ? null : basculerEnregistrement,
+                            icon: Icon(
+                              enregistrement
+                                  ? Icons.stop_circle
+                                  : Icons.mic,
+                              color: enregistrement
+                                  ? Colors.red
+                                  : widget.config.primaryColor,
+                              size: 28,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              enregistrement
+                                  ? 'Enregistrement… ${duree}s'
+                                  : (noteVocale != null
+                                      ? 'Note vocale prête (${duree > 0 ? duree : "?"}s)'
+                                      : 'Note vocale (optionnel)'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: enregistrement
+                                    ? Colors.red
+                                    : Colors.black54,
+                              ),
+                            ),
+                          ),
+                          if (noteVocale != null && !enregistrement)
+                            IconButton(
+                              onPressed: envoiEnCours
+                                  ? null
+                                  : () => setLocal(() {
+                                        noteVocale = null;
+                                        duree = 0;
+                                      }),
+                              icon: const Icon(Icons.delete_outline,
+                                  size: 20, color: Colors.black45),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: envoiEnCours
+                      ? null
+                      : () async {
+                          if (enregistrement) await recorder.stop();
+                          if (ctx.mounted) Navigator.pop(ctx, false);
+                        },
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(
+                  onPressed: envoiEnCours
+                      ? null
+                      : () async {
+                          final prix =
+                              num.tryParse(prixController.text.trim());
+                          if (prix == null) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Indique un prix valide.')),
+                            );
+                            return;
+                          }
+                          if (enregistrement) {
+                            await basculerEnregistrement();
+                          }
+                          setLocal(() => envoiEnCours = true);
+                          try {
+                            await StoreService.respondToRequest(
+                              requestId: r.id,
+                              prix: prix,
+                              stock: stockController.text.trim(),
+                              message: messageController.text.trim(),
+                              noteVocale: noteVocale,
+                            );
+                            if (ctx.mounted) Navigator.pop(ctx, true);
+                          } catch (e) {
+                            setLocal(() => envoiEnCours = false);
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        e.toString().replaceFirst(
+                                            'Exception: ', ''))),
+                              );
+                            }
+                          }
+                        },
+                  child: envoiEnCours
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Envoyer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
+    await recorder.dispose();
     if (ok != true) return;
-    final prix = num.tryParse(prixController.text.trim());
-    if (prix == null) return;
-
-    await StoreService.respondToRequest(
-      requestId: r.id,
-      prix: prix,
-      stock: stockController.text.trim(),
-      message: messageController.text.trim(),
-    );
-
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Réponse envoyée au client.')),

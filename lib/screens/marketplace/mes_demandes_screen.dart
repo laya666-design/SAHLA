@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
@@ -13,30 +14,31 @@ class MesDemandesScreen extends StatefulWidget {
 }
 
 class _MesDemandesScreenState extends State<MesDemandesScreen> {
-  // IMPORTANT : même correctif que store_dashboard_screen.dart. Un
-  // StreamBuilder qui reçoit une NOUVELLE instance de Stream à chaque
-  // reconstruction repart en ConnectionState.waiting et se ré-abonne à
-  // une nouvelle requête Firestore — d'où le flux principal créé une
-  // seule fois ici (et non dans build()).
-  late final Stream<List<PartRequest>> _myRequestsStream =
-      MarketplaceService.myRequests();
+  final _player = AudioPlayer();
+  String? _noteEnCours; // url de la note en lecture
 
-  // Un flux par demande (les offres), lui aussi créé une seule fois par
-  // requestId et réutilisé à chaque reconstruction de la liste, au lieu
-  // d'être recréé dans itemBuilder à chaque fois que _myRequestsStream
-  // réémet.
-  final Map<String, Stream<List<PartOffer>>> _offersStreams = {};
-
-  Stream<List<PartOffer>> _offersStreamFor(String requestId) {
-    return _offersStreams.putIfAbsent(
-        requestId, () => MarketplaceService.offersFor(requestId));
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
   }
-
-  AppConfig get config => widget.config;
 
   Future<void> _call(String tel) async {
     if (tel.isEmpty) return;
     await launchUrl(Uri(scheme: 'tel', path: tel));
+  }
+
+  Future<void> _ecouterNote(String url) async {
+    if (_noteEnCours == url) {
+      await _player.stop();
+      setState(() => _noteEnCours = null);
+      return;
+    }
+    setState(() => _noteEnCours = url);
+    await _player.play(UrlSource(url));
+    _player.onPlayerComplete.first.then((_) {
+      if (mounted) setState(() => _noteEnCours = null);
+    });
   }
 
   Future<void> _marquerVendu(
@@ -92,12 +94,12 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: config.primaryColor,
+        backgroundColor: widget.config.primaryColor,
         foregroundColor: Colors.white,
         title: const Text('Mes demandes'),
       ),
       body: StreamBuilder<List<PartRequest>>(
-        stream: _myRequestsStream,
+        stream: MarketplaceService.myRequests(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -148,56 +150,62 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                                 fontSize: 13, color: Colors.black54)),
                       )
                     else
-                    StreamBuilder<List<PartOffer>>(
-                      stream: _offersStreamFor(r.id),
-                      builder: (context, offerSnap) {
-                        final offers = offerSnap.data ?? [];
-                        if (offerSnap.connectionState ==
-                                ConnectionState.waiting &&
-                            offers.isEmpty) {
-                          return const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Center(
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2)),
-                          );
-                        }
-                        if (offers.isEmpty) {
-                          return const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Text(
-                              'Pas encore de réponse. Les magasins sont '
-                              'notifiés, reviens un peu plus tard.',
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.black54),
-                            ),
-                          );
-                        }
-                        return Column(
-                          children: offers
-                              .map((o) => ListTile(
+                      StreamBuilder<List<PartOffer>>(
+                        stream: MarketplaceService.offersFor(r.id),
+                        builder: (context, offerSnap) {
+                          final offers = offerSnap.data ?? [];
+                          if (offerSnap.connectionState ==
+                                  ConnectionState.waiting &&
+                              offers.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2)),
+                            );
+                          }
+                          if (offers.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                'Pas encore de réponse. Les magasins sont '
+                                'notifiés, reviens un peu plus tard.',
+                                style: TextStyle(
+                                    fontSize: 13, color: Colors.black54),
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: offers.map((o) {
+                              final sousTitre = o.stock.isEmpty
+                                  ? (o.message.isEmpty ? '' : o.message)
+                                  : '${o.stock}${o.message.isNotEmpty ? ' — ${o.message}' : ''}';
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  ListTile(
                                     title: Text(
-                                        o.storeNom.isEmpty
-                                            ? 'Magasin'
-                                            : o.storeNom,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w600)),
-                                    subtitle: Text(o.stock.isEmpty
-                                        ? (o.message.isEmpty
-                                            ? ''
-                                            : o.message)
-                                        : '${o.stock}${o.message.isNotEmpty ? ' — ${o.message}' : ''}'),
+                                      o.storeNom.isEmpty
+                                          ? 'Magasin'
+                                          : o.storeNom,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                    subtitle: Text(sousTitre),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text('${o.prix} DA',
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold)),
+                                        Text(
+                                          '${o.prix} DA',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
                                         if (o.storeTel.isNotEmpty)
                                           IconButton(
                                             icon: const Icon(Icons.call,
                                                 size: 20),
-                                            onPressed: () => _call(o.storeTel),
+                                            onPressed: () =>
+                                                _call(o.storeTel),
                                           ),
                                         if (r.estOuverte)
                                           IconButton(
@@ -206,16 +214,70 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                                                 Icons.check_circle_outline,
                                                 size: 20,
                                                 color: Colors.green),
-                                            onPressed: () =>
-                                                _marquerVendu(context, r, o),
+                                            onPressed: () => _marquerVendu(
+                                                context, r, o),
                                           ),
                                       ],
                                     ),
-                                  ))
-                              .toList(),
-                        );
-                      },
-                    ),
+                                  ),
+                                  // Note vocale du magasin — bien visible
+                                  if (o.aUneNoteVocale)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          16, 0, 16, 12),
+                                      child: Material(
+                                        color: widget.config.primaryColor
+                                            .withOpacity(0.08),
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                        child: InkWell(
+                                          onTap: () =>
+                                              _ecouterNote(o.noteVocaleUrl!),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 10),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  _noteEnCours ==
+                                                          o.noteVocaleUrl
+                                                      ? Icons.pause_circle
+                                                      : Icons
+                                                          .play_circle_filled,
+                                                  color: widget
+                                                      .config.primaryColor,
+                                                  size: 28,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Text(
+                                                    _noteEnCours ==
+                                                            o.noteVocaleUrl
+                                                        ? 'Lecture en cours…'
+                                                        : 'Note vocale du magasin — appuyer pour écouter',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: widget
+                                                          .config.primaryColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
                   ],
                 ),
               );

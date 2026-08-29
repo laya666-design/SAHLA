@@ -467,16 +467,28 @@ class StoreService {
   }
 
   /// Le magasin répond à une demande avec un prix.
+  /// [noteVocale] optionnelle : fichier audio local à uploader (même
+  /// logique que la note vocale côté acheteur).
   static Future<void> respondToRequest({
     required String requestId,
     required num prix,
     required String stock,
     required String message,
+    File? noteVocale,
   }) async {
     final profile = await myProfile();
     if (profile == null) {
       throw Exception('Profil magasin introuvable.');
     }
+
+    String? noteVocaleUrl;
+    if (noteVocale != null) {
+      noteVocaleUrl = await CloudinaryService.uploadAudio(
+        noteVocale,
+        folder: 'offers_notes/${profile.uid}',
+      );
+    }
+
     final offer = PartOffer(
       id: '',
       storeId: profile.uid,
@@ -485,6 +497,7 @@ class StoreService {
       prix: prix,
       stock: stock,
       message: message,
+      noteVocaleUrl: noteVocaleUrl,
       dateReponse: DateTime.now(),
     );
     await FirebaseFirestore.instance

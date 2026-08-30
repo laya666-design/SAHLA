@@ -4,6 +4,7 @@ import '../../services/store_service.dart';
 import 'store_complete_profile_screen.dart';
 import 'store_dashboard_screen.dart';
 import 'store_login_screen.dart';
+import 'widgets/reset_password_email_dialog.dart';
 
 /// Connexion magasin — style moderne (téléphone + mot de passe).
 /// Le numéro est converti en email technique pour Firebase Auth.
@@ -227,7 +228,7 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
                       ),
                     ),
 
-                    // Mot de passe oublié (info)
+                    // Mot de passe oublié
                     if (!_modeInscription)
                       Align(
                         alignment: Alignment.centerRight,
@@ -235,11 +236,26 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
                           onPressed: busy
                               ? null
                               : () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Pour réinitialiser le mot de passe d’un compte téléphone, contacte le support.',
+                                  final numero = StoreService
+                                      .normaliserNumeroLocal(
+                                          _phoneController.text);
+                                  if (numero == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Entre d\'abord ton numéro de téléphone ci-dessus.',
+                                        ),
                                       ),
+                                    );
+                                    return;
+                                  }
+                                  showResetPasswordEmailDialog(
+                                    context: context,
+                                    primaryColor: primary,
+                                    onEnvoyer: (email) =>
+                                        StoreService.demanderResetParEmail(
+                                      telephone: numero,
+                                      email: email,
                                     ),
                                   );
                                 },

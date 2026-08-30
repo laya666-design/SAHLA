@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/marketplace_service.dart';
+import '../../services/store_service.dart';
 import '../buyer_portal_screen.dart';
 import 'buyer_login_screen.dart';
+import 'widgets/reset_password_email_dialog.dart';
 
 /// Connexion acheteur — panel identique à l'Espace Pro Magasin
 /// (téléphone + mot de passe). Le numéro est converti en email
@@ -228,7 +230,7 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                       ),
                     ),
 
-                    // Mot de passe oublié (info)
+                    // Mot de passe oublié
                     if (!_modeInscription)
                       Align(
                         alignment: Alignment.centerRight,
@@ -236,11 +238,26 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                           onPressed: busy
                               ? null
                               : () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Pour réinitialiser le mot de passe d’un compte téléphone, contacte le support.',
+                                  final numero = StoreService
+                                      .normaliserNumeroLocal(
+                                          _phoneController.text);
+                                  if (numero == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Entre d\'abord ton numéro de téléphone ci-dessus.',
+                                        ),
                                       ),
+                                    );
+                                    return;
+                                  }
+                                  showResetPasswordEmailDialog(
+                                    context: context,
+                                    primaryColor: primary,
+                                    onEnvoyer: (email) =>
+                                        MarketplaceService.demanderResetParEmail(
+                                      telephone: numero,
+                                      email: email,
                                     ),
                                   );
                                 },

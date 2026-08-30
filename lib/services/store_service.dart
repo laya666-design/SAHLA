@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -24,22 +25,45 @@ const int kEssaiGratuitJours = 30;
 class StoreService {
   static const _storesCollection = 'stores';
   static const _rememberMeKey = 'store_remember_me';
+  static const _phoneAsIdKey = 'store_phone_as_id';
 
   static User? get currentUser => FirebaseAuth.instance.currentUser;
   static bool get isLoggedIn => currentUser != null;
 
+  /// Numéro sauvegardé localement comme identifiant du magasin connecté
+  /// — indépendant de l'email Firebase Auth actuel du compte, qui peut
+  /// changer (voir [demanderResetParEmail] : l'email technique
+  /// "@elbouni.local" est remplacé par un vrai email dès la première
+  /// récupération de mot de passe).
+  static String? _phoneAsId;
+
+  /// Charge le numéro sauvegardé (à appeler avant de décider de la
+  /// navigation — voir PartsPortalScreen).
+  static Future<void> loadPhoneAsId() async {
+    final prefs = await SharedPreferences.getInstance();
+    _phoneAsId = prefs.getString(_phoneAsIdKey);
+  }
+
+  static Future<void> _savePhoneAsId(String numero) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_phoneAsIdKey, numero);
+    _phoneAsId = numero;
+  }
+
   /// Identifiant du document Firestore du magasin connecté.
   ///
-  /// Pour les comptes créés via [signUpWithPhonePassword] (email technique
-  /// "0556653220@elbouni.local"), c'est le numéro de téléphone lui-même :
-  /// le document est stocké à `stores/0556653220`, lisible directement
-  /// dans la console Firestore. Pour les anciens comptes (Google, email
-  /// classique) créés avant ce changement, on retombe sur l'UID Firebase
-  /// Auth (leur document existe déjà sous cette clé, pas question de le
-  /// migrer automatiquement).
+  /// Pour les comptes créés via [signUpWithPhonePassword], c'est le
+  /// numéro de téléphone lui-même (sauvegardé localement à la connexion,
+  /// voir [_phoneAsId]) : le document est stocké à `stores/0556653220`,
+  /// lisible directement dans la console Firestore, et ce quel que soit
+  /// l'email Firebase Auth actuel du compte (fake ou réel après une
+  /// récupération de mot de passe). Pour les anciens comptes (Google,
+  /// email classique) créés avant ce changement, on retombe sur l'UID
+  /// Firebase Auth (leur document existe déjà sous cette clé).
   static String? get currentStoreDocId {
     final user = currentUser;
     if (user == null) return null;
+    if (_phoneAsId != null && _phoneAsId!.isNotEmpty) return _phoneAsId;
     final email = user.email;
     if (email != null && email.endsWith('@elbouni.local')) {
       return email.split('@').first;
@@ -58,11 +82,42 @@ class StoreService {
   // un vrai mot de passe choisi par le magasin.
   //
   // LIMITE IMPORTANTE : comme "@elbouni.local" n'est pas un vrai domaine,
-  // `sendPasswordResetEmail` ne peut pas fonctionner pour ces comptes
-  // (aucun email ne peut être livré). Si un magasin oublie son mot de
-  // passe, il faut le réinitialiser manuellement depuis la console
-  // Firebase (Authentication > l'utilisateur > Réinitialiser le mot de
-  // passe) en attendant un futur écran "mot de passe oublié" dédié.
+  // `sendPasswordResetEmail` ne peut pas fonctionner directement pour ces
+  // comptes (aucun email ne peut être livré). Voir [demanderResetParEmail]
+  // ci-dessous : à la première demande, la Cloud Function
+  // `attacherEmailRecuperationTelephone` bascule l'email réel du compte
+  // vers celui fourni par le magasin — ensuite Firebase peut envoyer
+  // nativement un vrai email de réinitialisation (aucun service tiers).
+
+  /// Demande la réinitialisation du mot de passe d'un compte téléphone :
+  /// associe (première fois) ou vérifie (fois suivantes) [email] comme
+  /// email réel du compte, puis déclenche l'envoi natif Firebase.
+  static Future<void> demanderResetParEmail({
+    required String telephone,
+    required String email,
+  }) async {
+    final numero = normaliserNumeroLocal(telephone);
+    if (numero == null) {
+      throw Exception('Numéro invalide. Utilise le format 0556 65 32 20.');
+    }
+    try {
+      final callable = FirebaseFunctions.instance
+          .httpsCallable('attacherEmailRecuperationTelephone');
+      final result = await callable.call({
+        'telephone': numero,
+        'email': email.trim(),
+        'type': 'store',
+      });
+      final emailReel = result.data?['email'] as String? ?? email.trim();
+      // Envoi natif Firebase — fonctionne car l'email du compte est
+      // désormais un vrai email (basculé par la Cloud Function ci-dessus).
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: emailReel);
+    } on FirebaseFunctionsException catch (e) {
+      throw Exception(e.message ?? 'Envoi impossible.');
+    } on FirebaseAuthException catch (e) {
+      throw Exception(e.message ?? 'Envoi impossible.');
+    }
+  }
 
   /// Normalise une saisie de numéro algérien vers le format local à 10
   /// chiffres commençant par 0 (ex: "0556653220"), quel que soit le
@@ -97,6 +152,25 @@ class StoreService {
   /// Email technique invisible pour l'utilisateur, dérivé du numéro.
   static String _emailTechniqueDepuisNumero(String numeroLocal) =>
       '$numeroLocal@elbouni.local';
+
+  /// Email actuellement utilisé pour l'authentification Firebase de ce
+  /// numéro : l'email technique par défaut, sauf si une récupération de
+  /// mot de passe a déjà eu lieu — auquel cas c'est le vrai email fourni
+  /// à ce moment-là (champ `authEmail`, mis à jour par
+  /// `attacherEmailRecuperationTelephone`).
+  static Future<String> _authEmailPourNumero(String numero) async {
+    final technique = _emailTechniqueDepuisNumero(numero);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection(_storesCollection)
+          .doc(numero)
+          .get();
+      final authEmail = doc.data()?['authEmail'] as String?;
+      return (authEmail != null && authEmail.isNotEmpty) ? authEmail : technique;
+    } catch (_) {
+      return technique;
+    }
+  }
 
   static String _messageErreurAuth(FirebaseAuthException e) {
     switch (e.code) {
@@ -160,6 +234,7 @@ class StoreService {
           .doc(numero)
           .set(profile.toMap());
       await _saveRememberMe(true);
+      await _savePhoneAsId(numero);
       await _registerFcmToken(numero);
     } on FirebaseAuthException catch (e) {
       throw Exception(_messageErreurAuth(e));
@@ -178,11 +253,13 @@ class StoreService {
           'Numéro invalide. Utilise le format 0556 65 32 20.');
     }
     try {
+      final email = await _authEmailPourNumero(numero);
       await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailTechniqueDepuisNumero(numero),
+        email: email,
         password: password,
       );
       await _saveRememberMe(rememberMe);
+      await _savePhoneAsId(numero);
       await _registerFcmToken(numero);
     } on FirebaseAuthException catch (e) {
       throw Exception(_messageErreurAuth(e));

@@ -72,14 +72,18 @@ class PartsPortalScreen extends StatelessWidget {
                 'مخصص للمتاجر: استقبل الطلبات، أجب بالسعر، أدر اشتراكك.',
               ),
               color: Colors.black87,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => StoreService.isLoggedIn
-                      ? StoreDashboardScreen(config: config)
-                      : StorePhoneLoginScreen(config: config),
-                ),
-              ),
+              onTap: () async {
+                await StoreService.loadPhoneAsId();
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StoreService.isLoggedIn
+                        ? StoreDashboardScreen(config: config)
+                        : StorePhoneLoginScreen(config: config),
+                  ),
+                );
+              },
             ),
           ],
         ),

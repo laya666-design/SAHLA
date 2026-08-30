@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cloudinary_service.dart';
@@ -46,6 +47,24 @@ class MarketplaceService {
 
   static String _emailTechniqueDepuisNumero(String numeroLocal) =>
       '$numeroLocal@vroumclient.local';
+
+  /// Email actuellement utilisé pour l'authentification Firebase de ce
+  /// numéro : l'email technique par défaut, sauf si une récupération de
+  /// mot de passe a déjà eu lieu (voir StoreService, même mécanisme —
+  /// champ `authEmail` dans `buyer_accounts/<numero>`).
+  static Future<String> _authEmailPourNumero(String numero) async {
+    final technique = _emailTechniqueDepuisNumero(numero);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('buyer_accounts')
+          .doc(numero)
+          .get();
+      final authEmail = doc.data()?['authEmail'] as String?;
+      return (authEmail != null && authEmail.isNotEmpty) ? authEmail : technique;
+    } catch (_) {
+      return technique;
+    }
+  }
 
   static String _messageErreurAuth(FirebaseAuthException e) {
     switch (e.code) {
@@ -103,8 +122,9 @@ class MarketplaceService {
       throw Exception('Numéro invalide. Utilise le format 0556 65 32 20.');
     }
     try {
+      final email = await _authEmailPourNumero(numero);
       await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailTechniqueDepuisNumero(numero),
+        email: email,
         password: password,
       );
       await _savePhoneAsId(numero);
@@ -174,6 +194,35 @@ class MarketplaceService {
   /// Envoie l'email Firebase de réinitialisation de mot de passe.
   static Future<void> sendPasswordResetEmail(String email) async {
     await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+  }
+
+  /// Demande la réinitialisation du mot de passe d'un compte téléphone
+  /// (même mécanisme que StoreService.demanderResetParEmail côté
+  /// magasin — 100% Firebase, aucun service tiers) : associe/vérifie
+  /// [email] comme email réel du compte, puis déclenche l'envoi natif.
+  static Future<void> demanderResetParEmail({
+    required String telephone,
+    required String email,
+  }) async {
+    final numero = StoreService.normaliserNumeroLocal(telephone);
+    if (numero == null) {
+      throw Exception('Numéro invalide. Utilise le format 0556 65 32 20.');
+    }
+    try {
+      final callable = FirebaseFunctions.instance
+          .httpsCallable('attacherEmailRecuperationTelephone');
+      final result = await callable.call({
+        'telephone': numero,
+        'email': email.trim(),
+        'type': 'buyer',
+      });
+      final emailReel = result.data?['email'] as String? ?? email.trim();
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: emailReel);
+    } on FirebaseFunctionsException catch (e) {
+      throw Exception(e.message ?? 'Envoi impossible.');
+    } on FirebaseAuthException catch (e) {
+      throw Exception(e.message ?? 'Envoi impossible.');
+    }
   }
 
   /// Diffuse une demande de pièce à tous les magasins actifs.

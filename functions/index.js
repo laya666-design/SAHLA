@@ -269,6 +269,94 @@ exports.rejectPayment = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+/**
+ * Réinitialisation de mot de passe pour les comptes créés par téléphone
+ * (magasin ou acheteur) : ces comptes utilisent un email technique
+ * invisible ("0556653220@elbouni.local" / "@vroumclient.local") auquel
+ * Firebase ne peut jamais livrer d'email réel.
+ *
+ * Solution 100% Firebase (pas de service tiers) : la première fois que
+ * le magasin/acheteur demande une réinitialisation, on bascule l'email
+ * réel du compte Firebase Auth vers l'adresse qu'il fournit (Admin SDK —
+ * seule une fonction serveur peut changer l'email d'un compte auquel on
+ * n'est pas connecté). Une fois ce changement fait, Firebase peut
+ * envoyer nativement un vrai email de réinitialisation à cette adresse
+ * (le client appelle ensuite `sendPasswordResetEmail` normalement).
+ *
+ * Demandes suivantes pour ce même numéro : l'email fourni doit
+ * correspondre exactement à celui déjà associé, sinon la demande est
+ * refusée (empêche n'importe qui connaissant juste le numéro de
+ * détourner le compte).
+ */
+exports.attacherEmailRecuperationTelephone = functions.https.onCall(
+  async (data, context) => {
+    const numero = (data.telephone || '').toString().replace(/[^0-9]/g, '');
+    const email = (data.email || '').toString().trim().toLowerCase();
+    const type = data.type === 'buyer' ? 'buyer' : 'store';
+
+    if (numero.length !== 10 || !numero.startsWith('0')) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Numéro invalide.'
+      );
+    }
+    if (!email || !email.includes('@')) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Email invalide.'
+      );
+    }
+
+    const domaineTechnique = type === 'buyer' ? 'vroumclient.local' : 'elbouni.local';
+    const emailTechniqueParDefaut = `${numero}@${domaineTechnique}`;
+    const collection = type === 'buyer' ? 'buyer_accounts' : 'stores';
+
+    const db = admin.firestore();
+    const docRef = db.collection(collection).doc(numero);
+    const doc = await docRef.get();
+    const authEmailActuel =
+      (doc.exists && doc.data().authEmail) || emailTechniqueParDefaut;
+
+    // Vérifie que le compte Firebase Auth existe bien pour ce numéro.
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUserByEmail(authEmailActuel);
+    } catch (e) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'Aucun compte avec ce numéro.'
+      );
+    }
+
+    const recuperationDejaFaite = authEmailActuel !== emailTechniqueParDefaut;
+
+    if (recuperationDejaFaite) {
+      // Une récupération a déjà eu lieu pour ce numéro : l'email fourni
+      // doit correspondre exactement à celui déjà associé au compte.
+      if (authEmailActuel.toLowerCase() !== email) {
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          "Cet email ne correspond pas à celui enregistré pour ce compte. Contacte le support si tu ne t'en souviens plus."
+        );
+      }
+      // Rien à changer : l'email réel est déjà celui-là, le client peut
+      // directement demander la réinitialisation Firebase standard.
+      return { email: authEmailActuel };
+    }
+
+    // Première récupération pour ce numéro : on bascule l'email réel du
+    // compte, afin que Firebase puisse ensuite lui envoyer un vrai email
+    // de réinitialisation (natif, gratuit, sans service tiers).
+    await admin.auth().updateUser(userRecord.uid, {
+      email,
+      emailVerified: false,
+    });
+    await docRef.set({ authEmail: email }, { merge: true });
+
+    return { email };
+  }
+);
+
 function db_ref(storeId, paymentId) {
   return admin
     .firestore()

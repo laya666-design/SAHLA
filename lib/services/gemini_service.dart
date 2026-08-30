@@ -177,39 +177,46 @@ vehicule.
   Future<Map<String, dynamic>> analyzeCarteGrise(File file) async {
     try {
       final prompt = '''
-Tu es un expert en cartes grises automobiles algeriennes.
+Tu es un expert en cartes grises automobiles algeriennes (document beige).
 REGLE CRITIQUE: Ne jamais inventer une information non visible sur l image.
 Si un champ n est pas lisible, mets null.
+Fonctionne pour TOUTES les marques (Toyota, Renault, Peugeot, Hyundai, Kia,
+Dacia, Nissan, Volkswagen, Mercedes, etc.) — pas seulement une marque.
 
-Ce document est majoritairement en ARABE ; les cases francaises
-(MARQUE, TYPE, GENRE...) sont parfois vides ou tres petites alors que la
-valeur reelle n est ecrite qu en arabe a cote. Tu dois donc lire et
-comprendre le texte arabe du document, pas seulement les libelles francais.
-Cherche la valeur du champ "الطراز" (marque/modele) et "النوع" (type) en
-arabe si la case francaise correspondante est vide.
+Le document est MAJORITAIREMENT EN ARABE. Tu DOIS lire le texte arabe.
 
-IMPORTANT sur l emplacement de la marque : dans le tableau d identification
-du vehicule (partie basse du document), la marque est tres souvent ecrite
-en LETTRES LATINES MAJUSCULES (ex "TOYOTA", "RENAULT", "PEUGEOT", "NISSAN"...)
-dans la case juste a cote/en dessous du libelle arabe "العلامة", generalement
-sur la meme ligne que le "النوع" (type/genre, ex "VP / VEHICULE PARTICULIER").
-Regarde precisement cette case en priorite : c est la source la plus fiable
-de la marque, plus fiable que toute deduction. Zoome mentalement sur cette
-zone precise avant de conclure, la photo etant souvent floue ou pale.
+=== 4 CASES PRIORITAIRES + ANNEE (tableau du bas de la carte grise) ===
 
-Le champ "chassis"/numero dans la serie du type (ex: NCP92L..., JTD...,
-VF1..., JN1...) est un indice utile sur le constructeur reel, mais NE
-DEDUIS PAS la marque a partir de ce prefixe seul si le texte du document
-(arabe ou francais) indique clairement une autre marque, ou si aucune
-marque n est explicitement lisible : dans ce dernier cas mets "marque":
-null plutot que de deviner. Ne choisis jamais une marque uniquement parce
-qu elle "correspond" a la puissance fiscale ou au type de carrosserie.
+1. Case "الصنف" + libelle francais "MARQUE"
+   → NOM DU CONSTRUCTEUR, souvent en arabe.
+   Convertis TOUJOURS en latin majuscules :
+   تويوتا=TOYOTA, رينو=RENAULT, بيجو=PEUGEOT, سيتروين=CITROEN,
+   داكيا=DACIA, هيونداي=HYUNDAI, كيا=KIA, نيسان=NISSAN,
+   فولكسفاجن=VOLKSWAGEN, مرسيدس=MERCEDES, سوزوكي=SUZUKI,
+   شيفروليه=CHEVROLET, فيات=FIAT, اوبل=OPEL, سكودا=SKODA,
+   ميتسوبيشي=MITSUBISHI, هوندا=HONDA, فورد=FORD,
+   et toute autre marque lisible.
+   → JSON "marque"
 
-Une fois les champs officiels extraits, deduis le code moteur et le type de
-carburant a partir de la marque/modele/type/puissance fiscale (connaissance
-generale du marche automobile, pas invente au hasard) ; si la marque elle
-meme est incertaine, mets aussi engine_code et fuel_type a null plutot que
-d inventer une combinaison plausible.
+2. Case "الطراز"
+   → Code type technique (ex: NCP92LBEMRK, K9K, VF1RJB..., etc.)
+   → JSON "chassis" (et "type" si utile)
+
+3. Case "القوة" / "PUISSANCE"
+   → Puissance fiscale (ex: 005, 006, 007...)
+   → JSON "puissance_fiscale"
+
+4. Case "الطاقة" / "ENERGIE"
+   → Carburant (ES-GPL/, DIESEL, ESSENCE, GASOIL...)
+   → JSON "fuel_type" normalise : gpl | diesel | essence
+
+5. Annee de premiere mise en circulation
+   → JSON "annee" (format aaaa)
+
+Ne confonds JAMAIS الصنف/MARQUE (constructeur) avec الطراز (code type).
+
+Apres extraction, deduis engine_code si possible a partir de la marque +
+code type + puissance (marche algerien). Si marque inconnue → engine_code null.
 
 Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
 

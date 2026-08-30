@@ -88,16 +88,35 @@ class NotificationService {
       );
       final tzDate = tz.TZDateTime.from(dateTirSouhaitee, tz.local);
 
-      await _plugin.zonedSchedule(
-        _notificationId(vehiculeId, typeRappel, jours),
-        '$libelleDocument — $titre',
-        'Expire dans $jours jour${jours > 1 ? 's' : ''}. Pense à renouveler.',
-        tzDate,
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
+      // Prefer exact alarms when permitted (Android 12+). If not granted,
+      // fall back to inexact so the scan never fails with PlatformException.
+      try {
+        await _plugin.zonedSchedule(
+          _notificationId(vehiculeId, typeRappel, jours),
+          '$libelleDocument — $titre',
+          'Expire dans $jours jour${jours > 1 ? 's' : ''}. Pense à renouveler.',
+          tzDate,
+          details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        try {
+          await _plugin.zonedSchedule(
+            _notificationId(vehiculeId, typeRappel, jours),
+            '$libelleDocument — $titre',
+            'Expire dans $jours jour${jours > 1 ? 's' : ''}. Pense à renouveler.',
+            tzDate,
+            details,
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime,
+          );
+        } catch (_) {
+          // Ignore rather than break the OCR/scan flow.
+        }
+      }
     }
   }
 

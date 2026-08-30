@@ -9,7 +9,11 @@ class GeminiService {
   static const String _workerUrl =
       'https://tight-smoke-4dfa.laya666.workers.dev';
 
-  Future<String> _callGroq(String prompt, File file) async {
+  Future<String> _callGroq(
+    String prompt,
+    File file, {
+    String reasoningEffort = 'none',
+  }) async {
     final bytes = await file.readAsBytes();
     final base64Image = base64Encode(bytes);
 
@@ -28,7 +32,11 @@ class GeminiService {
         }
       ],
       "temperature": 0.2,
-      "reasoning_effort": "none",
+      "reasoning_effort": reasoningEffort,
+      // Le mode reflexion ("default") genere du texte de raisonnement avant
+      // le JSON final : il faut assez de tokens pour ne pas couper la
+      // reponse avant qu elle n arrive au JSON.
+      "max_completion_tokens": reasoningEffort == 'none' ? 1024 : 4096,
     };
 
     final response = await http.post(
@@ -138,9 +146,14 @@ REGLE: ne jamais inventer d informations non visibles sur l image. Si tu
 hesites entre deux dates, prends celle qui correspond a la prochaine visite
 periodique (la plus recente/future), jamais la date d enregistrement du
 vehicule.
+
+Avant de repondre, relis mentalement toutes les dates que tu as reperees sur
+le document et verifie laquelle est bien celle de la PROCHAINE visite (la
+plus future), puis donne uniquement le JSON final.
 ''';
 
-      final raw = await _callGroq(prompt, file);
+      final raw =
+          await _callGroq(prompt, file, reasoningEffort: 'default');
       final json = _parseJson(raw);
       json.remove('magasins');
       return json;
@@ -166,6 +179,15 @@ valeur reelle n est ecrite qu en arabe a cote. Tu dois donc lire et
 comprendre le texte arabe du document, pas seulement les libelles francais.
 Cherche la valeur du champ "الطراز" (marque/modele) et "النوع" (type) en
 arabe si la case francaise correspondante est vide.
+
+IMPORTANT sur l emplacement de la marque : dans le tableau d identification
+du vehicule (partie basse du document), la marque est tres souvent ecrite
+en LETTRES LATINES MAJUSCULES (ex "TOYOTA", "RENAULT", "PEUGEOT", "NISSAN"...)
+dans la case juste a cote/en dessous du libelle arabe "العلامة", generalement
+sur la meme ligne que le "النوع" (type/genre, ex "VP / VEHICULE PARTICULIER").
+Regarde precisement cette case en priorite : c est la source la plus fiable
+de la marque, plus fiable que toute deduction. Zoome mentalement sur cette
+zone precise avant de conclure, la photo etant souvent floue ou pale.
 
 Le champ "chassis"/numero dans la serie du type (ex: NCP92L..., JTD...,
 VF1..., JN1...) est un indice utile sur le constructeur reel, mais NE
@@ -194,9 +216,14 @@ Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
   "engine_code": "ex K9K, deduit ou null si incertain",
   "fuel_type": "diesel, essence ou gpl, deduit ou null si incertain"
 }
+
+Avant de repondre, relis specifiquement la case "العلامة" (marque, lettres
+latines majuscules) une deuxieme fois pour confirmer ta lecture, puis donne
+uniquement le JSON final.
 ''';
 
-      final raw = await _callGroq(prompt, file);
+      final raw =
+          await _callGroq(prompt, file, reasoningEffort: 'default');
       final json = _parseJson(raw);
       json.remove('magasins');
       return json;

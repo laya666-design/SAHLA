@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/app_config.dart';
 import '../services/vehicule_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/screen_background.dart';
 import 'admin/admin_login_screen.dart';
 
 /// Onglet Profil : remplace l'ancien onglet Carte (statique, peu utile).
@@ -29,9 +31,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final uri = Uri(
       scheme: 'mailto',
       path: 'contact@elbouni-pieces-auto.dz',
-      query: 'subject=${Uri.encodeComponent("Support - El Bouni Pièces Auto")}',
+      query:
+          'subject=${Uri.encodeComponent("Support - ${widget.config.appName}")}',
     );
     await launchUrl(uri);
+  }
+
+  void _showPremiumComingSoon(
+      BuildContext context, String Function(String, String) t) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(t('Bientôt disponible', 'قريباً'))),
+    );
   }
 
   String _vehicleProfileLabel(String Function(String, String) t) {
@@ -87,174 +97,181 @@ class _ProfileScreenState extends State<ProfileScreen> {
         String t(String fr, String ar) => isAr ? ar : fr;
         final isPremium = SettingsService.isPremium;
 
-        return SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(t('Profil', 'الملف الشخصي'),
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 16),
+        return ScreenBackground(
+          // Pas de photo dédiée au profil pour l'instant : la catégorie
+          // "generique" retombe proprement sur le dégradé + icône en
+          // filigrane tant que assets/images/bg_generique.jpg n'existe pas.
+          category: BackgroundCategory.generique,
+          accentColor: widget.config.primaryColor,
+          child: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(t('Profil', 'الملف الشخصي'),
+                    style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 16),
 
-              // Carte statut du compte
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: widget.config.primaryColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: widget.config.primaryColor,
-                      child: const Icon(Icons.person, color: Colors.white),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(widget.config.appName,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 2),
-                          Text(
-                            isPremium
-                                ? t('Compte Premium', 'حساب Premium')
-                                : t('Compte gratuit', 'حساب مجاني'),
-                            style: TextStyle(
-                                color: isPremium
-                                    ? const Color(0xFF166534)
-                                    : Colors.black54,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!isPremium)
-                      Chip(
-                        label: const Text('Premium',
-                            style:
-                                TextStyle(fontSize: 11, color: Colors.white)),
+                // Carte statut du compte
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
                         backgroundColor: widget.config.primaryColor,
+                        child: const Icon(Icons.person, color: Colors.white),
                       ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              Text(t('Réglages', 'الإعدادات'),
-                  style:
-                      const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const SizedBox(height: 8),
-
-              // Langue
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.language),
-                  title: Text(t('Langue', 'اللغة')),
-                  subtitle: Text(isAr ? 'العربية' : 'Français'),
-                  trailing: SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(value: false, label: Text('FR')),
-                      ButtonSegment(value: true, label: Text('AR')),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(widget.config.appName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16)),
+                            const SizedBox(height: 2),
+                            Text(
+                              isPremium
+                                  ? t('Compte Premium', 'حساب Premium')
+                                  : t('Compte gratuit', 'حساب مجاني'),
+                              style: TextStyle(
+                                  color: isPremium
+                                      ? const Color(0xFF166534)
+                                      : Colors.black54,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
-                    selected: {isAr},
-                    onSelectionChanged: (s) =>
-                        widget.isAr.value = s.first,
                   ),
                 ),
-              ),
+                const SizedBox(height: 24),
 
-              // Type de véhicule (voiture / moto / les deux) : pilote
-              // quels onglets sont affichés dans l'app, choisi à
-              // l'onboarding et modifiable ici.
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.tune),
-                  title: Text(t('Type de véhicule', 'نوع المركبة')),
-                  subtitle: Text(_vehicleProfileLabel(t)),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showVehicleProfilePicker(context, t),
-                ),
-              ),
+                Text(t('Réglages', 'الإعدادات'),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
 
-              // Rappels SMS/Appel
-              Card(
-                child: SwitchListTile(
-                  secondary: const Icon(Icons.notifications_active_outlined),
-                  title: Text(t('Rappels par SMS / Appel', 'تذكيرات عبر SMS / مكالمة')),
-                  subtitle: Text(
-                    isPremium
-                        ? t('Bientôt disponible', 'قريباً')
-                        : t('Réservé aux comptes Premium',
-                            'حصري لحسابات Premium'),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  value: SettingsService.smsRemindersEnabled,
-                  onChanged: isPremium
-                      ? (val) async {
-                          await SettingsService.setSmsRemindersEnabled(val);
-                          setState(() {});
-                        }
-                      : null,
-                ),
-              ),
-
-              if (!isPremium)
+                // Langue
                 Card(
                   child: ListTile(
-                    leading: Icon(Icons.workspace_premium,
-                        color: widget.config.primaryColor),
-                    title: Text(t('Passer en Premium', 'الترقية إلى Premium')),
-                    subtitle: Text(t(
-                        'Véhicules illimités et rappels SMS/appel',
-                        'مركبات غير محدودة وتذكيرات SMS/مكالمة')),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content:
-                                Text(t('Bientôt disponible', 'قريباً'))),
-                      );
-                    },
-                  ),
-                ),
-
-              const SizedBox(height: 24),
-              Text(t('Support', 'الدعم'),
-                  style:
-                      const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const SizedBox(height: 8),
-
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.mail_outline),
-                  title: Text(t('Contacter le support', 'التواصل مع الدعم')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _contactSupport,
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: Text(t('À propos', 'حول التطبيق')),
-                  subtitle: Text(t(
-                      'El Bouni Pièces Auto — gestion véhicules & pièces détachées',
-                      'El Bouni Pièces Auto — إدارة المركبات وقطع الغيار')),
-                  // Accès admin caché : appui long ici, invisible pour
-                  // les utilisateurs normaux et les magasins.
-                  onLongPress: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AdminLoginScreen(config: widget.config),
+                    leading: const Icon(Icons.language),
+                    title: Text(t('Langue', 'اللغة')),
+                    subtitle: Text(isAr ? 'العربية' : 'Français'),
+                    trailing: SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(value: false, label: Text('FR')),
+                        ButtonSegment(value: true, label: Text('AR')),
+                      ],
+                      selected: {isAr},
+                      onSelectionChanged: (s) => widget.isAr.value = s.first,
                     ),
                   ),
                 ),
-              ),
-            ],
+
+                // Type de véhicule (voiture / moto / les deux) : pilote
+                // quels onglets sont affichés dans l'app, choisi à
+                // l'onboarding et modifiable ici.
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.tune),
+                    title: Text(t('Type de véhicule', 'نوع المركبة')),
+                    subtitle: Text(_vehicleProfileLabel(t)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _showVehicleProfilePicker(context, t),
+                  ),
+                ),
+
+                // Rappels SMS/Appel — reste cliquable même désactivée
+                // (compte non-Premium) pour guider vers l'upgrade au lieu
+                // d'un cul-de-sac silencieux.
+                Card(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: !isPremium
+                        ? () => _showPremiumComingSoon(context, t)
+                        : null,
+                    child: SwitchListTile(
+                      secondary:
+                          const Icon(Icons.notifications_active_outlined),
+                      title: Text(t('Rappels par SMS / Appel',
+                          'تذكيرات عبر SMS / مكالمة')),
+                      subtitle: Text(
+                        isPremium
+                            ? t('Bientôt disponible', 'قريباً')
+                            : t('Réservé aux comptes Premium',
+                                'حصري لحسابات Premium'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      value: SettingsService.smsRemindersEnabled,
+                      onChanged: isPremium
+                          ? (val) async {
+                              await SettingsService.setSmsRemindersEnabled(
+                                  val);
+                              setState(() {});
+                            }
+                          : null,
+                    ),
+                  ),
+                ),
+
+                if (!isPremium)
+                  Card(
+                    child: ListTile(
+                      leading: Icon(Icons.workspace_premium,
+                          color: widget.config.primaryColor),
+                      title:
+                          Text(t('Passer en Premium', 'الترقية إلى Premium')),
+                      subtitle: Text(t(
+                          'Véhicules illimités et rappels SMS/appel',
+                          'مركبات غير محدودة وتذكيرات SMS/مكالمة')),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _showPremiumComingSoon(context, t),
+                    ),
+                  ),
+
+                const SizedBox(height: 24),
+                Text(t('Support', 'الدعم'),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
+
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.mail_outline),
+                    title: Text(t('Contacter le support', 'التواصل مع الدعم')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _contactSupport,
+                  ),
+                ),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.info_outline),
+                    title: Text(t('À propos', 'حول التطبيق')),
+                    subtitle: Text(t(
+                        '${widget.config.appName} — gestion véhicules & pièces détachées',
+                        '${widget.config.appName} — إدارة المركبات وقطع الغيار')),
+                    // Accès admin caché : appui long ici, invisible pour
+                    // les utilisateurs normaux et les magasins.
+                    onLongPress: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            AdminLoginScreen(config: widget.config),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

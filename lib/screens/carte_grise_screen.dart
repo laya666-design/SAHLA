@@ -200,6 +200,16 @@ class _CarteGriseScreenState extends State<CarteGriseScreen> {
                     'améliorer la reconnaissance des pièces compatibles.',
             style: const TextStyle(color: Colors.black54),
           ),
+          const SizedBox(height: 4),
+          const Text(
+            '⚠️ Cadre bien le TABLEAU DU BAS (marque, type, châssis, '
+            'puissance) : c\'est là que se trouvent toutes les infos '
+            'utiles, pas seulement le haut avec le nom du propriétaire.',
+            style: TextStyle(
+                color: Colors.black54,
+                fontSize: 12,
+                fontStyle: FontStyle.italic),
+          ),
           const SizedBox(height: 16),
         ],
         Row(

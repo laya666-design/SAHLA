@@ -95,26 +95,38 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
     });
 
     try {
-      // 1) OCR local -> fait foi pour le calcul (fonctionne sans internet)
-      final rawText = await _ocr.extractText(file);
-      final dates = OcrService.extractDates(rawText);
-      final expiration = OcrService.mostRecentDate(dates);
+      // 1) Gemini d'abord : comprend le document (arabe/francais, plusieurs
+      // dates) et sait normalement distinguer la date de la PROCHAINE
+      // visite des autres dates du document.
+      ControleTechniqueInfo info = ControleTechniqueInfo();
+      DateTime? expiration;
+      try {
+        final json = await _gemini.analyzeControleTechnique(file);
+        info = ControleTechniqueInfo.fromJson(json);
+        expiration = info.dateProchainControleParsed;
+      } catch (_) {
+        // Gemini indisponible : on se rabat plus bas sur l'OCR local.
+      }
+      _info = info;
+
+      // 2) OCR local (ML Kit) en repli uniquement si Gemini n'a pas pu
+      // donner de date exploitable (hors-ligne, ou champ non reconnu).
+      // Repli imparfait : il prend la date la plus recente parmi TOUTES
+      // celles visibles sur la photo, donc a eviter si Gemini a reussi.
+      if (expiration == null) {
+        final rawText = await _ocr.extractText(file);
+        final dates = OcrService.extractDates(rawText);
+        expiration = OcrService.mostRecentDate(dates);
+      }
 
       if (expiration != null) {
         _status = ExpiryStatus(expirationDate: expiration);
       } else {
         _error =
-            'Aucune date reconnue sur cette photo. Reprends la photo bien '
-            'cadrée sur la date du prochain contrôle, ou vérifie manuellement.';
-      }
-
-      // 2) Gemini en complément pour les détails (centre, numéro...)
-      try {
-        final json = await _gemini.analyzeControleTechnique(file);
-        _info = ControleTechniqueInfo.fromJson(json);
-      } catch (_) {
-        // Le complément IA est optionnel : l'échec ne bloque pas le calcul.
-        _info = ControleTechniqueInfo();
+            'Aucune date reconnue sur cette photo. Cadre bien tout le '
+            'document, y compris la case en bas avec la date de la '
+            'PROCHAINE visite (pas seulement le haut du document), ou '
+            'vérifie manuellement.';
       }
 
       await _saveToVehicule();
@@ -164,6 +176,16 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
             'Photographie l\'attestation de contrôle technique pour '
             'calculer les jours restants avant le prochain passage.',
             style: TextStyle(color: Colors.black54),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '⚠️ Cadre bien TOUT le document, y compris la case en bas de '
+            'page avec la date de la PROCHAINE visite périodique — pas '
+            'seulement le tableau du haut.',
+            style: TextStyle(
+                color: Colors.black54,
+                fontSize: 12,
+                fontStyle: FontStyle.italic),
           ),
           const SizedBox(height: 16),
         ],

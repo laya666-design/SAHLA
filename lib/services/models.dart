@@ -32,11 +32,13 @@ class ControleTechniqueInfo {
   final String centre;
   final String numero;
   final String kilometrage;
+  final String dateProchainControle; // format dd/MM/yyyy tel que renvoyé par Gemini
 
   ControleTechniqueInfo({
     this.centre = '',
     this.numero = '',
     this.kilometrage = '',
+    this.dateProchainControle = '',
   });
 
   factory ControleTechniqueInfo.fromJson(Map<String, dynamic>? json) {
@@ -45,7 +47,26 @@ class ControleTechniqueInfo {
       centre: json['centre']?.toString() ?? '',
       numero: json['numero']?.toString() ?? '',
       kilometrage: json['kilometrage']?.toString() ?? '',
+      dateProchainControle:
+          json['date_prochain_controle']?.toString() ?? '',
     );
+  }
+
+  /// Parse le champ dd/MM/yyyy renvoyé par Gemini, ou null si absent/invalide.
+  DateTime? get dateProchainControleParsed {
+    final s = dateProchainControle.trim();
+    final m = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(s);
+    if (m == null) return null;
+    final day = int.tryParse(m.group(1)!);
+    final month = int.tryParse(m.group(2)!);
+    final year = int.tryParse(m.group(3)!);
+    if (day == null || month == null || year == null) return null;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    try {
+      return DateTime(year, month, day);
+    } catch (_) {
+      return null;
+    }
   }
 }
 

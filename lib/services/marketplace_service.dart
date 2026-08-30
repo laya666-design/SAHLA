@@ -4,11 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cloudinary_service.dart';
 import 'marketplace_models.dart';
+import 'store_service.dart';
 
 /// Marketplace pièces — côté demandeur (client / acheteur).
 ///
-/// Connexion par numéro de téléphone enregistré comme identifiant
-/// (`clientId` = numéro normalisé +213…). Pas de SMS / WhatsApp.
+/// Connexion par numéro de téléphone + mot de passe (même principe que
+/// [StoreService] côté magasin) : le numéro normalisé est converti en un
+/// email technique invisible ("0556653220@vroumclient.local") pour
+/// utiliser Firebase Auth email/mot de passe, sans SMS à payer.
 /// La session persiste grâce à SharedPreferences : retour en arrière
 /// ne déconnecte pas.
 class MarketplaceService {
@@ -34,13 +37,80 @@ class MarketplaceService {
     _phoneAsId = prefs.getString(_phoneAsIdKey);
   }
 
-  /// Enregistre le numéro comme identifiant et crée une session anonyme si besoin.
-  static Future<String> connectWithPhoneAsId(String phoneNumber) async {
+  // --- Authentification téléphone + mot de passe (méthode principale) ---
+  // Même mécanisme que StoreService côté magasin : le numéro devient un
+  // email technique "@vroumclient.local" pour Firebase Auth. Comme ce
+  // domaine n'existe pas réellement, sendPasswordResetEmail ne peut pas
+  // fonctionner pour ces comptes — mot de passe oublié = contacter le
+  // support pour une réinitialisation manuelle depuis la console Firebase.
+
+  static String _emailTechniqueDepuisNumero(String numeroLocal) =>
+      '$numeroLocal@vroumclient.local';
+
+  static String _messageErreurAuth(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Numéro ou mot de passe incorrect.';
+      case 'user-not-found':
+        return 'Aucun compte avec ce numéro. Crée un compte d\'abord.';
+      case 'email-already-in-use':
+        return 'Un compte existe déjà avec ce numéro. Connecte-toi plutôt.';
+      case 'weak-password':
+        return 'Mot de passe trop court (6 caractères minimum).';
+      case 'too-many-requests':
+        return 'Trop de tentatives. Réessaie plus tard.';
+      case 'network-request-failed':
+        return 'Pas de connexion internet. Vérifie ton réseau et réessaie.';
+      default:
+        return e.message ?? 'Erreur de connexion.';
+    }
+  }
+
+  static Future<void> _savePhoneAsId(String numero) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_phoneAsIdKey, phoneNumber);
-    _phoneAsId = phoneNumber;
-    await ensureSignedIn();
-    return phoneNumber;
+    await prefs.setString(_phoneAsIdKey, numero);
+    _phoneAsId = numero;
+  }
+
+  /// Crée un compte acheteur avec numéro + mot de passe.
+  static Future<void> signUpWithPhonePassword({
+    required String telephone,
+    required String password,
+  }) async {
+    final numero = StoreService.normaliserNumeroLocal(telephone);
+    if (numero == null) {
+      throw Exception('Numéro invalide. Utilise le format 0556 65 32 20.');
+    }
+    try {
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailTechniqueDepuisNumero(numero),
+        password: password,
+      );
+      await _savePhoneAsId(numero);
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_messageErreurAuth(e));
+    }
+  }
+
+  /// Connexion acheteur avec numéro + mot de passe.
+  static Future<void> signInWithPhonePassword({
+    required String telephone,
+    required String password,
+  }) async {
+    final numero = StoreService.normaliserNumeroLocal(telephone);
+    if (numero == null) {
+      throw Exception('Numéro invalide. Utilise le format 0556 65 32 20.');
+    }
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailTechniqueDepuisNumero(numero),
+        password: password,
+      );
+      await _savePhoneAsId(numero);
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_messageErreurAuth(e));
+    }
   }
 
   /// Garantit une session Firebase et retourne l'identifiant des demandes

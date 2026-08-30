@@ -3,10 +3,9 @@ import '../../config/app_config.dart';
 import '../../services/marketplace_service.dart';
 import '../buyer_portal_screen.dart';
 
-/// Connexion acheteur par numéro de téléphone (enregistré comme identifiant).
-/// Pas de SMS / WhatsApp. La session est persistée : retour en arrière
-/// ne déconnecte pas.
-/// Style aligné sur [StorePhoneLoginScreen] (Espace Pro).
+/// Connexion acheteur — panel identique à l'Espace Pro Magasin
+/// (téléphone + mot de passe). Le numéro est converti en email
+/// technique pour Firebase Auth (voir MarketplaceService).
 class BuyerPhoneLoginScreen extends StatefulWidget {
   final AppConfig config;
   final bool isAr;
@@ -22,69 +21,37 @@ class BuyerPhoneLoginScreen extends StatefulWidget {
 
 class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
   final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   bool _loading = false;
+  bool _modeInscription = false;
+  bool _motDePasseVisible = false;
   String? _error;
-
-  bool get _ar => widget.isAr;
-  String _t(String fr, String ar) => _ar ? ar : fr;
-
-  @override
-  void initState() {
-    super.initState();
-    // Rafraîchit le bouton (texte "Se connecter") dès que l'utilisateur tape.
-    _phoneController.addListener(() => setState(() {}));
-  }
 
   @override
   void dispose() {
     _phoneController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  /// Normalise un numéro algérien vers +213…
-  String? _normaliserNumero(String saisie) {
-    const eastern = '٠١٢٣٤٥٦٧٨٩';
-    const western = '0123456789';
-    var s = saisie.trim();
-    for (var i = 0; i < 10; i++) {
-      s = s.replaceAll(eastern[i], western[i]);
-    }
-    final chiffres = s.replaceAll(RegExp(r'[^0-9+]'), '');
-    if (chiffres.isEmpty) return null;
+  Future<void> _valider() async {
+    final phoneRaw = _phoneController.text;
+    final password = _passwordController.text;
 
-    if (chiffres.startsWith('+213') && chiffres.length == 13) {
-      return chiffres;
+    // Validation basique du numéro (même règle que côté magasin, via
+    // le message d'erreur ; la normalisation réelle est faite dans
+    // MarketplaceService, qui accepte les mêmes formats).
+    final digits = phoneRaw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length < 9) {
+      setState(() => _error =
+          'Numéro invalide ($digits, ${digits.length} chiffres). '
+          'Utilise le format 0556 65 32 20.');
+      return;
     }
-    if (chiffres.startsWith('213') && chiffres.length == 12) {
-      return '+$chiffres';
-    }
-    if (chiffres.startsWith('0') && chiffres.length == 10) {
-      return '+213${chiffres.substring(1)}';
-    }
-    if (chiffres.length == 9 &&
-        (chiffres.startsWith('5') ||
-            chiffres.startsWith('6') ||
-            chiffres.startsWith('7'))) {
-      return '+213$chiffres';
-    }
-    if (chiffres.startsWith('+2130') && chiffres.length == 14) {
-      return '+213${chiffres.substring(5)}';
-    }
-    return null;
-  }
-
-  Future<void> _connecter() async {
-    final saisie = _phoneController.text;
-    final numero = _normaliserNumero(saisie);
-    if (numero == null) {
-      final digits = saisie.replaceAll(RegExp(r'[^0-9]'), '');
-      setState(() => _error = _t(
-            'Numéro invalide ($digits, ${digits.length} chiffres). '
-            'Utilise le format 0556 65 32 20.',
-            'رقم غير صالح ($digits, ${digits.length} أرقام). '
-            'استخدم الصيغة 0556 65 32 20.',
-          ));
+    if (password.length < 6) {
+      setState(
+          () => _error = 'Le mot de passe doit faire au moins 6 caractères.');
       return;
     }
 
@@ -94,9 +61,18 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
     });
 
     try {
-      await MarketplaceService.connectWithPhoneAsId(numero);
+      if (_modeInscription) {
+        await MarketplaceService.signUpWithPhonePassword(
+          telephone: phoneRaw,
+          password: password,
+        );
+      } else {
+        await MarketplaceService.signInWithPhonePassword(
+          telephone: phoneRaw,
+          password: password,
+        );
+      }
       if (!mounted) return;
-      // Remplace l'écran de login pour que le retour ne ramène pas ici.
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -105,33 +81,22 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
         ),
       );
     } catch (e) {
-      setState(() => _error = _t('Erreur : $e', 'خطأ: $e'));
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _continuerSansCompte() async {
-    await MarketplaceService.ensureSignedIn();
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            BuyerPortalScreen(config: widget.config, isAr: widget.isAr),
-      ),
-    );
-  }
-
   InputDecoration _fieldDecoration({
     required String hint,
     required IconData prefix,
+    Widget? suffix,
   }) {
-    final primary = widget.config.primaryColor;
     return InputDecoration(
       labelText: '',
       hintText: hint,
       prefixIcon: Icon(prefix, size: 20, color: Colors.black45),
+      suffixIcon: suffix,
       filled: true,
       fillColor: const Color(0xFFF5F5F7),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -145,7 +110,7 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: primary, width: 1.5),
+        borderSide: BorderSide(color: widget.config.primaryColor, width: 1.5),
       ),
     );
   }
@@ -184,7 +149,7 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                     Icon(Icons.person_rounded, size: 48, color: primary),
                     const SizedBox(height: 12),
                     Text(
-                      _t('Portail acheteur', 'بوابة المشتري'),
+                      'Portail acheteur',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 26,
@@ -195,11 +160,9 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      _t(
-                        'Entre ton numéro de téléphone pour retrouver '
-                        'tes demandes sur n\'importe quel appareil.',
-                        'أدخل رقم هاتفك لاسترجاع طلباتك على أي جهاز.',
-                      ),
+                      _modeInscription
+                          ? 'Crée ton compte pour suivre tes demandes'
+                          : 'Bon retour ! Connecte-toi pour continuer',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 14,
@@ -210,9 +173,9 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                     const SizedBox(height: 32),
 
                     // Téléphone
-                    Text(
-                      _t('Téléphone', 'الهاتف'),
-                      style: const TextStyle(
+                    const Text(
+                      'Téléphone',
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: Colors.black87,
@@ -223,13 +186,76 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       enabled: !busy,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _connecter(),
+                      textInputAction: TextInputAction.next,
                       decoration: _fieldDecoration(
                         hint: '0556 65 32 20',
                         prefix: Icons.phone_outlined,
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Mot de passe
+                    const Text(
+                      'Mot de passe',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: !_motDePasseVisible,
+                      enabled: !busy,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _valider(),
+                      decoration: _fieldDecoration(
+                        hint: 'Entrez votre mot de passe',
+                        prefix: Icons.lock_outline,
+                        suffix: IconButton(
+                          icon: Icon(
+                            _motDePasseVisible
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 20,
+                            color: Colors.black45,
+                          ),
+                          onPressed: () => setState(
+                              () => _motDePasseVisible = !_motDePasseVisible),
+                        ),
+                      ),
+                    ),
+
+                    // Mot de passe oublié (info)
+                    if (!_modeInscription)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: busy
+                              ? null
+                              : () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Pour réinitialiser le mot de passe d’un compte téléphone, contacte le support.',
+                                      ),
+                                    ),
+                                  );
+                                },
+                          style: TextButton.styleFrom(
+                            foregroundColor: primary,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Mot de passe oublié ?',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ),
 
                     if (_error != null) ...[
                       const SizedBox(height: 8),
@@ -246,7 +272,7 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                     SizedBox(
                       height: 52,
                       child: FilledButton(
-                        onPressed: busy ? null : _connecter,
+                        onPressed: busy ? null : _valider,
                         style: FilledButton.styleFrom(
                           backgroundColor: primary,
                           foregroundColor: Colors.white,
@@ -265,10 +291,9 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                                 ),
                               )
                             : Text(
-                                _phoneController.text.trim().isEmpty
-                                    ? _t('Continuer avec ce numéro',
-                                        'المتابعة بهذا الرقم')
-                                    : _t('Se connecter', 'تسجيل الدخول'),
+                                _modeInscription
+                                    ? 'Créer mon compte'
+                                    : 'Connexion',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -279,38 +304,34 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Séparateur OU
+                    // Inscription / connexion
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                            child: Divider(color: Colors.grey.shade300)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                        Text(
+                          _modeInscription
+                              ? 'Déjà un compte ? '
+                              : 'Pas encore de compte ? ',
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.black54),
+                        ),
+                        GestureDetector(
+                          onTap: busy
+                              ? null
+                              : () => setState(() {
+                                    _modeInscription = !_modeInscription;
+                                    _error = null;
+                                  }),
                           child: Text(
-                            _t('OU', 'أو'),
+                            _modeInscription ? 'Se connecter' : "S'inscrire",
                             style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: primary,
                             ),
                           ),
                         ),
-                        Expanded(
-                            child: Divider(color: Colors.grey.shade300)),
                       ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    TextButton(
-                      onPressed: busy ? null : _continuerSansCompte,
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.black54,
-                      ),
-                      child: Text(
-                        _t('Continuer sans compte', 'المتابعة بدون حساب'),
-                        style: const TextStyle(fontSize: 13),
-                      ),
                     ),
                   ],
                 ),

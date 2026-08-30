@@ -105,7 +105,25 @@ REGLE: magasins doit toujours etre un tableau vide [].
       final prompt = '''
 Tu es un expert controle technique automobile pour l Algerie.
 REGLE CRITIQUE: Ne jamais inventer de nom de centre, adresse ou telephone.
-Analyse cette image d attestation/vignette de controle technique algerien.
+Analyse cette image d attestation de controle technique algerien (document
+bilingue arabe/francais, souvent intitule "Proces-verbal de controle
+technique des vehicules" / "محضر المراقبة التقنية للسيارات").
+
+ATTENTION: ce document contient PLUSIEURS dates differentes, il faut choisir
+la bonne :
+- la date d enregistrement/immatriculation du vehicule (pres du numero de
+  registration, ex "12/12/2023") -> CE N EST PAS la bonne date, ignore-la.
+- la date de la visite technique qui vient d etre effectuee (champ
+  "تاريخ المراقبة" / "DATE" en haut du tableau) -> ce n est pas non plus la
+  date a retourner.
+- la date de la PROCHAINE visite periodique programmee, generalement ecrite
+  plus bas sur le document, souvent apres la mention
+  "طبيعة وتاريخ المراقبة اللاحقة" / "VISITE PERIODIQUE LE" / "prochaine
+  visite" -> C EST CETTE DATE qu il faut mettre dans "date_prochain_controle".
+Cette date de prochaine visite est presque toujours la plus eloignee dans le
+futur parmi toutes les dates visibles sur le document (generalement 1 an
+apres la date de la visite actuelle).
+
 Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
 
 {
@@ -116,7 +134,10 @@ Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
   "jours_restants": 0
 }
 
-REGLE: ne jamais inventer d informations non visibles sur l image.
+REGLE: ne jamais inventer d informations non visibles sur l image. Si tu
+hesites entre deux dates, prends celle qui correspond a la prochaine visite
+periodique (la plus recente/future), jamais la date d enregistrement du
+vehicule.
 ''';
 
       final raw = await _callGroq(prompt, file);
@@ -138,10 +159,28 @@ REGLE: ne jamais inventer d informations non visibles sur l image.
 Tu es un expert en cartes grises automobiles algeriennes.
 REGLE CRITIQUE: Ne jamais inventer une information non visible sur l image.
 Si un champ n est pas lisible, mets null.
-Analyse cette photo de carte grise (carte jaune) algerienne et extrait les
-champs officiels, puis deduis le code moteur et le type de carburant a
-partir de la marque/modele/type/puissance fiscale (connaissance generale
-du marche automobile, pas invente au hasard).
+
+Ce document est majoritairement en ARABE ; les cases francaises
+(MARQUE, TYPE, GENRE...) sont parfois vides ou tres petites alors que la
+valeur reelle n est ecrite qu en arabe a cote. Tu dois donc lire et
+comprendre le texte arabe du document, pas seulement les libelles francais.
+Cherche la valeur du champ "الطراز" (marque/modele) et "النوع" (type) en
+arabe si la case francaise correspondante est vide.
+
+Le champ "chassis"/numero dans la serie du type (ex: NCP92L..., JTD...,
+VF1..., JN1...) est un indice utile sur le constructeur reel, mais NE
+DEDUIS PAS la marque a partir de ce prefixe seul si le texte du document
+(arabe ou francais) indique clairement une autre marque, ou si aucune
+marque n est explicitement lisible : dans ce dernier cas mets "marque":
+null plutot que de deviner. Ne choisis jamais une marque uniquement parce
+qu elle "correspond" a la puissance fiscale ou au type de carrosserie.
+
+Une fois les champs officiels extraits, deduis le code moteur et le type de
+carburant a partir de la marque/modele/type/puissance fiscale (connaissance
+generale du marche automobile, pas invente au hasard) ; si la marque elle
+meme est incertaine, mets aussi engine_code et fuel_type a null plutot que
+d inventer une combinaison plausible.
+
 Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
 
 {

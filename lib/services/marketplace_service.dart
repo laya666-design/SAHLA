@@ -144,6 +144,38 @@ class MarketplaceService {
     await FirebaseAuth.instance.signOut();
   }
 
+  // --- Authentification par e-mail (alternative au téléphone) ---
+  // Contrairement au flux téléphone, ceci utilise un vrai email : la
+  // réinitialisation de mot de passe (sendPasswordResetEmail) fonctionne
+  // normalement.
+
+  /// Crée un compte acheteur avec email + mot de passe.
+  static Future<void> signUpWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+  }
+
+  /// Connexion acheteur avec email + mot de passe.
+  static Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+  }
+
+  /// Envoie l'email Firebase de réinitialisation de mot de passe.
+  static Future<void> sendPasswordResetEmail(String email) async {
+    await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+  }
+
   /// Diffuse une demande de pièce à tous les magasins actifs.
   static Future<String> broadcastRequest({
     required File photo,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/marketplace_service.dart';
 import '../buyer_portal_screen.dart';
+import 'buyer_login_screen.dart';
 
 /// Connexion acheteur — panel identique à l'Espace Pro Magasin
 /// (téléphone + mot de passe). Le numéro est converti en email
@@ -303,6 +304,32 @@ class _BuyerPhoneLoginScreenState extends State<BuyerPhoneLoginScreen> {
                     ),
 
                     const SizedBox(height: 24),
+
+                    // Lien email
+                    TextButton(
+                      onPressed: busy
+                          ? null
+                          : () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => BuyerLoginScreen(
+                                    config: widget.config,
+                                    isAr: widget.isAr,
+                                  ),
+                                ),
+                              );
+                            },
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.black54,
+                      ),
+                      child: const Text(
+                        'Se connecter avec un e-mail',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
 
                     // Inscription / connexion
                     Row(

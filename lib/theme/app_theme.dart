@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 
-/// Palette et thème visuels VROUM23 — thème CLAIR (fond blanc). Un seul
+/// Palette et thème visuels VROUM DZ — thème CLAIR (fond blanc). Un seul
 /// point de vérité pour les couleurs ; les écrans doivent utiliser ces
 /// tokens plutôt que des couleurs codées en dur.
 ///
@@ -12,7 +12,7 @@ import '../config/app_config.dart';
 class AppColors {
   AppColors._();
 
-  // Marque — vert VROUM23. Ne pas changer sans mettre à jour aussi
+  // Marque — vert VROUM DZ. Ne pas changer sans mettre à jour aussi
   // l'icône de l'app / le splash screen.
   static const primary = Color(0xFF22C55E);
   static const primaryDark = Color(0xFF16A34A);
@@ -50,7 +50,7 @@ class AppTheme {
         borderRadius: BorderRadius.circular(20),
       );
 
-  /// Thème clair VROUM23. [config] permet de garder la couleur de marque
+  /// Thème clair VROUM DZ. [config] permet de garder la couleur de marque
   /// pilotée depuis AppConfig plutôt que dupliquée ici.
   static ThemeData light(AppConfig config) {
     final scheme = ColorScheme.fromSeed(

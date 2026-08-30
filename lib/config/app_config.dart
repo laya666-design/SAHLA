@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// VROUM23 — Annaba Auto Parts Marketplace (ex "El Bouni Pièces Auto").
-/// Rebrand nom/couleurs uniquement — package/applicationId Android inchangé
-/// pour ne pas casser la config Firebase/keystore existante.
+/// VROUM DZ — Annaba Auto Parts Marketplace (ex "El Bouni Pièces Auto", ex
+/// "VROUM23"). Rebrand nom/couleurs uniquement — package/applicationId
+/// Android inchangé pour ne pas casser la config Firebase/keystore existante.
 class AppConfig {
   final String appName;
-  final Color primaryColor; // vert VROUM23
+  final Color primaryColor; // vert VROUM DZ
   final Color primaryDark;
   final Color enchereColor; // orange — enchères / offres magasins
   final Color sosColor; // rouge — alertes/SOS
@@ -21,7 +21,7 @@ class AppConfig {
   });
 
   static const _instance = AppConfig._(
-    appName: 'VROUM23',
+    appName: 'VROUM DZ',
     primaryColor: Color(0xFF22C55E), // vert
     primaryDark: Color(0xFF16A34A),
     enchereColor: Color(0xFFF97316), // orange

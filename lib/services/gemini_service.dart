@@ -58,6 +58,19 @@ class GeminiService {
     return content as String;
   }
 
+  /// Transforme une erreur technique (JSON invalide, reponse tronquee,
+  /// contenant encore un bloc <think> non ferme, etc.) en message
+  /// comprehensible pour l utilisateur, plutot que d afficher la
+  /// FormatException brute dans l ecran.
+  String _friendlyOcrError(Object e) {
+    final msg = e.toString();
+    if (msg.contains('<think>') || msg.contains('FormatException')) {
+      return 'Analyse impossible (reponse invalide). Reessayez avec une '
+          'photo plus nette et bien eclairee.';
+    }
+    return msg;
+  }
+
   Map<String, dynamic> _parseJson(String raw) {
     // Retire un eventuel bloc de raisonnement <think>...</think>
     String cleaned =
@@ -104,7 +117,7 @@ REGLE: magasins doit toujours etre un tableau vide [].
       final raw = await _callGroq(prompt, file);
       return _parseJson(raw);
     } catch (e) {
-      return {'error': e.toString(), 'magasins': []};
+      return {'error': _friendlyOcrError(e), 'magasins': []};
     }
   }
 
@@ -146,19 +159,14 @@ REGLE: ne jamais inventer d informations non visibles sur l image. Si tu
 hesites entre deux dates, prends celle qui correspond a la prochaine visite
 periodique (la plus recente/future), jamais la date d enregistrement du
 vehicule.
-
-Avant de repondre, relis mentalement toutes les dates que tu as reperees sur
-le document et verifie laquelle est bien celle de la PROCHAINE visite (la
-plus future), puis donne uniquement le JSON final.
 ''';
 
-      final raw =
-          await _callGroq(prompt, file, reasoningEffort: 'default');
+      final raw = await _callGroq(prompt, file);
       final json = _parseJson(raw);
       json.remove('magasins');
       return json;
     } catch (e) {
-      return {'error': e.toString()};
+      return {'error': _friendlyOcrError(e)};
     }
   }
 
@@ -216,19 +224,14 @@ Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
   "engine_code": "ex K9K, deduit ou null si incertain",
   "fuel_type": "diesel, essence ou gpl, deduit ou null si incertain"
 }
-
-Avant de repondre, relis specifiquement la case "العلامة" (marque, lettres
-latines majuscules) une deuxieme fois pour confirmer ta lecture, puis donne
-uniquement le JSON final.
 ''';
 
-      final raw =
-          await _callGroq(prompt, file, reasoningEffort: 'default');
+      final raw = await _callGroq(prompt, file);
       final json = _parseJson(raw);
       json.remove('magasins');
       return json;
     } catch (e) {
-      return {'error': e.toString()};
+      return {'error': _friendlyOcrError(e)};
     }
   }
 
@@ -274,7 +277,7 @@ REGLE CRITIQUE: magasins = [] toujours vide. Ne jamais inventer de telephone.
       final raw = await _callGroq(prompt, file);
       return _parseJson(raw);
     } catch (e) {
-      return {'error': e.toString(), 'magasins': []};
+      return {'error': _friendlyOcrError(e), 'magasins': []};
     }
   }
 }

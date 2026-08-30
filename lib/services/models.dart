@@ -101,31 +101,39 @@ class CarteGriseInfo {
     final modele = _cleanNull(json['modele']?.toString());
     final chassis = _cleanNull(json['chassis']?.toString()).toUpperCase();
     var fuelType = _cleanNull(json['fuel_type']?.toString()).toLowerCase();
+    var engineCode = _cleanNull(json['engine_code']?.toString());
 
-    // Convertit un éventuel nom arabe brut vers latin (toutes marques).
+    // 1) Traduire le mot arabe de la case MARQUE → latin
     marque = _arabeVersLatin(marque);
 
-    // Fallback constructeur depuis le code type / VIN si marque vide.
-    if (marque.isEmpty && chassis.isNotEmpty) {
-      marque = _deduireMarqueDepuisChassis(chassis);
+    // 2) Le code type (chassis) est plus fiable que l'IA quand il y a conflit.
+    //    Ex: NCP92 = TOYOTA, jamais RENAULT/DACIA.
+    final marqueDepuisChassis = _deduireMarqueDepuisChassis(chassis);
+    if (marqueDepuisChassis.isNotEmpty) {
+      // Si l'IA a mis une mauvaise marque, on corrige avec le prefixe chassis.
+      if (marque.isEmpty ||
+          (marque != marqueDepuisChassis &&
+              _estCodeType(marque))) {
+        marque = marqueDepuisChassis;
+      } else if (marque != marqueDepuisChassis &&
+          !_marquesCompatibles(marque, marqueDepuisChassis)) {
+        // Conflit clair (ex: AI dit RENAULT mais chassis NCP) → trust chassis
+        marque = marqueDepuisChassis;
+      }
     }
 
-    // Normalise le carburant (ES-GPL/ → gpl, etc.).
+    // 3) Normaliser carburant
     if (fuelType.contains('gpl')) {
       fuelType = 'gpl';
     } else if (fuelType.contains('diesel') || fuelType.contains('gasoil')) {
       fuelType = 'diesel';
     } else if (fuelType.contains('essence')) {
       fuelType = 'essence';
-    } else if (fuelType.isEmpty) {
-      final raw = _cleanNull(json['energie']?.toString()).toUpperCase();
-      if (raw.contains('GPL')) {
-        fuelType = 'gpl';
-      } else if (raw.contains('DIESEL') || raw.contains('GASOIL')) {
-        fuelType = 'diesel';
-      } else if (raw.contains('ESSENCE') || raw.startsWith('ES')) {
-        fuelType = 'essence';
-      }
+    }
+
+    // 4) Si engine_code invente pour mauvaise marque, on nettoie
+    if (marque == 'TOYOTA' && engineCode.toUpperCase() == 'K9K') {
+      engineCode = ''; // K9K = Renault/Dacia, pas Toyota
     }
 
     return CarteGriseInfo(
@@ -136,7 +144,7 @@ class CarteGriseInfo {
       chassis: chassis,
       puissanceFiscale: _cleanNull(json['puissance_fiscale']?.toString()),
       immatriculation: _cleanNull(json['immatriculation']?.toString()),
-      engineCode: _cleanNull(json['engine_code']?.toString()),
+      engineCode: engineCode,
       fuelType: fuelType,
     );
   }
@@ -147,7 +155,19 @@ class CarteGriseInfo {
     return t;
   }
 
-  /// Convertit les noms de marques arabes courants vers le latin.
+  static bool _estCodeType(String s) =>
+      RegExp(r'^[A-Z0-9]{5,}$').hasMatch(s.toUpperCase());
+
+  static bool _marquesCompatibles(String a, String b) {
+    // Renault et Dacia partagent souvent les memes plateformes
+    final group = {
+      'RENAULT': 'renault_group',
+      'DACIA': 'renault_group',
+    };
+    return (group[a] ?? a) == (group[b] ?? b);
+  }
+
+  /// Traduit le mot arabe de la case MARQUE vers le latin.
   static String _arabeVersLatin(String s) {
     if (s.isEmpty) return s;
     final map = <String, String>{
@@ -173,21 +193,15 @@ class CarteGriseInfo {
       'فورد': 'FORD',
       'سيات': 'SEAT',
       'اودي': 'AUDI',
-      'جيب': 'JEEP',
-      'لاند روفر': 'LAND ROVER',
-      'ايسوزو': 'ISUZU',
     };
     for (final e in map.entries) {
       if (s.contains(e.key)) return e.value;
     }
-    // Déjà en latin → majuscules
-    if (RegExp(r'^[A-Za-z0-9 \-]+$').hasMatch(s)) {
-      return s.toUpperCase();
-    }
+    if (RegExp(r'^[A-Za-z0-9 \-]+$').hasMatch(s)) return s.toUpperCase();
     return s;
   }
 
-  /// Préfixes de codes type / VIN fréquents sur le marché algérien.
+  /// Prefixe chassis / code type → constructeur (tres fiable en Algerie).
   static String _deduireMarqueDepuisChassis(String chassis) {
     final c = chassis.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
     if (c.startsWith('NCP') ||
@@ -196,9 +210,7 @@ class CarteGriseInfo {
         c.startsWith('NZT') ||
         c.startsWith('KSP') ||
         c.startsWith('JT') ||
-        c.startsWith('SB1')) {
-      return 'TOYOTA';
-    }
+        c.startsWith('SB1')) return 'TOYOTA';
     if (c.startsWith('VF1') || c.startsWith('VF2')) return 'RENAULT';
     if (c.startsWith('VF3')) return 'PEUGEOT';
     if (c.startsWith('VF7') || c.startsWith('VR7')) return 'CITROEN';
@@ -209,9 +221,7 @@ class CarteGriseInfo {
     if (c.startsWith('KMH') || c.startsWith('KMF') || c.startsWith('TMA')) {
       return 'HYUNDAI';
     }
-    if (c.startsWith('KNA') || c.startsWith('U5Y') || c.startsWith('KNAD')) {
-      return 'KIA';
-    }
+    if (c.startsWith('KNA') || c.startsWith('U5Y')) return 'KIA';
     if (c.startsWith('JN1') || c.startsWith('SJN') || c.startsWith('VSK')) {
       return 'NISSAN';
     }
@@ -227,8 +237,8 @@ class CarteGriseInfo {
     }
     if (c.startsWith('ZFA') || c.startsWith('ZFB')) return 'FIAT';
     if (c.startsWith('W0L') || c.startsWith('W0V')) return 'OPEL';
-    if (c.startsWith('TMB') || c.startsWith('TMP')) return 'SKODA';
-    if (c.startsWith('WAU') || c.startsWith('TRU')) return 'AUDI';
+    if (c.startsWith('TMB')) return 'SKODA';
+    if (c.startsWith('WAU')) return 'AUDI';
     if (c.startsWith('JHM') || c.startsWith('JH4')) return 'HONDA';
     return '';
   }

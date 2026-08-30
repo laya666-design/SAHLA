@@ -88,8 +88,6 @@ class NotificationService {
       );
       final tzDate = tz.TZDateTime.from(dateTirSouhaitee, tz.local);
 
-      // Prefer exact alarms when permitted (Android 12+). If not granted,
-      // fall back to inexact so the scan never fails with PlatformException.
       try {
         await _plugin.zonedSchedule(
           _notificationId(vehiculeId, typeRappel, jours),
@@ -113,9 +111,7 @@ class NotificationService {
             uiLocalNotificationDateInterpretation:
                 UILocalNotificationDateInterpretation.absoluteTime,
           );
-        } catch (_) {
-          // Ignore rather than break the OCR/scan flow.
-        }
+        } catch (_) {}
       }
     }
   }

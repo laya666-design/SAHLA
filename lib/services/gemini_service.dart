@@ -177,48 +177,51 @@ vehicule.
   Future<Map<String, dynamic>> analyzeCarteGrise(File file) async {
     try {
       final prompt = '''
-Tu es un expert en cartes grises automobiles algeriennes (document beige).
-REGLE CRITIQUE: Ne jamais inventer une information non visible sur l image.
-Si un champ n est pas lisible, mets null.
-Fonctionne pour TOUTES les marques (Toyota, Renault, Peugeot, Hyundai, Kia,
-Dacia, Nissan, Volkswagen, Mercedes, etc.) — pas seulement une marque.
+Tu es un expert OCR de cartes grises algeriennes.
+REGLE ABSOLUE: Ne jamais inventer. Si illisible → null.
 
-Le document est MAJORITAIREMENT EN ARABE. Tu DOIS lire le texte arabe.
+=== TACHE PRINCIPALE : LIRE LE MOT ARABE DANS LA CASE "MARQUE" ===
 
-=== 4 CASES PRIORITAIRES + ANNEE (tableau du bas de la carte grise) ===
+Dans le tableau du bas de la carte grise, il y a une case avec :
+- en haut : "الصنف"
+- en bas : "MARQUE"
 
-1. Case "الصنف" + libelle francais "MARQUE"
-   → NOM DU CONSTRUCTEUR, souvent en arabe.
-   Convertis TOUJOURS en latin majuscules :
-   تويوتا=TOYOTA, رينو=RENAULT, بيجو=PEUGEOT, سيتروين=CITROEN,
-   داكيا=DACIA, هيونداي=HYUNDAI, كيا=KIA, نيسان=NISSAN,
-   فولكسفاجن=VOLKSWAGEN, مرسيدس=MERCEDES, سوزوكي=SUZUKI,
-   شيفروليه=CHEVROLET, فيات=FIAT, اوبل=OPEL, سكودا=SKODA,
-   ميتسوبيشي=MITSUBISHI, هوندا=HONDA, فورد=FORD,
-   et toute autre marque lisible.
-   → JSON "marque"
+A L INTERIEUR de cette case se trouve un MOT EN ARABE (ex: تويوتا, رينو, بيجو, هيونداي, كيا, داكيا, نيسان...).
 
-2. Case "الطراز"
-   → Code type technique (ex: NCP92LBEMRK, K9K, VF1RJB..., etc.)
-   → JSON "chassis" (et "type" si utile)
+1. Lis CE MOT ARABE exactement tel qu il est ecrit dans la case.
+2. Traduis-le en francais/latin majuscules :
+   تويوتا → TOYOTA
+   رينو → RENAULT
+   بيجو → PEUGEOT
+   سيتروين → CITROEN
+   داكيا → DACIA
+   هيونداي → HYUNDAI
+   كيا → KIA
+   نيسان → NISSAN
+   فولكسفاجن → VOLKSWAGEN
+   مرسيدس → MERCEDES
+   سوزوكي → SUZUKI
+   شيفروليه → CHEVROLET
+   فيات → FIAT
+   اوبل → OPEL
+   سكودا → SKODA
+   ميتسوبيشي → MITSUBISHI
+   هوندا → HONDA
+   فورد → FORD
+3. Mets le resultat latin dans "marque".
 
-3. Case "القوة" / "PUISSANCE"
-   → Puissance fiscale (ex: 005, 006, 007...)
-   → JSON "puissance_fiscale"
+NE PRENDS PAS le code type (NCP92..., K9K, VF1...) pour la marque.
+Le code type est dans la case VOISINE "الطراز" → mets-le dans "chassis".
 
-4. Case "الطاقة" / "ENERGIE"
-   → Carburant (ES-GPL/, DIESEL, ESSENCE, GASOIL...)
-   → JSON "fuel_type" normalise : gpl | diesel | essence
+Autres champs a extraire :
+- الطراز → chassis (code type)
+- القوة / PUISSANCE → puissance_fiscale (ex: 005)
+- الطاقة / ENERGIE → fuel_type (gpl / diesel / essence)
+- Annee de 1ere mise en circulation → annee (aaaa)
 
-5. Annee de premiere mise en circulation
-   → JSON "annee" (format aaaa)
+Deduction engine_code uniquement si marque + chassis sont fiables.
 
-Ne confonds JAMAIS الصنف/MARQUE (constructeur) avec الطراز (code type).
-
-Apres extraction, deduis engine_code si possible a partir de la marque +
-code type + puissance (marche algerien). Si marque inconnue → engine_code null.
-
-Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
+Retourne UNIQUEMENT ce JSON :
 
 {
   "marque": "string ou null",
@@ -228,8 +231,8 @@ Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
   "chassis": "string ou null",
   "puissance_fiscale": "string ou null",
   "immatriculation": "string ou null",
-  "engine_code": "ex K9K, deduit ou null si incertain",
-  "fuel_type": "diesel, essence ou gpl, deduit ou null si incertain"
+  "engine_code": "string ou null",
+  "fuel_type": "diesel, essence ou gpl ou null"
 }
 ''';
 

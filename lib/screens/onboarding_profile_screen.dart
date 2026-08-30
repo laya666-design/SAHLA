@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../widgets/screen_background.dart';
+import 'home_screen.dart';
 
 /// Premier écran vu par l'utilisateur : demande s'il conduit une voiture,
 /// une moto/scooter, ou les deux, avant de donner accès au reste de
@@ -10,7 +11,11 @@ import '../widgets/screen_background.dart';
 class OnboardingProfileScreen extends StatefulWidget {
   final AppConfig config;
   final ValueNotifier<bool> isAr;
-  final ValueChanged<String> onChosen;
+  // Enregistre le choix (ex: sauvegarde Hive). La navigation vers l'accueil
+  // est gérée ici, avec le context de cet écran — pas celui du Splash qui
+  // a déjà été détruit par son propre pushReplacement (c'était la cause du
+  // bug : "Continuer" ne faisait rien tant que l'app n'était pas relancée).
+  final Future<void> Function(String value) onChosen;
 
   const OnboardingProfileScreen({
     super.key,
@@ -26,6 +31,19 @@ class OnboardingProfileScreen extends StatefulWidget {
 
 class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   String? _selected;
+  bool _validating = false;
+
+  Future<void> _continuer() async {
+    if (_selected == null || _validating) return;
+    setState(() => _validating = true);
+    await widget.onChosen(_selected!);
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => HomeScreen(config: widget.config, isAr: widget.isAr),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,15 +125,23 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                             backgroundColor: widget.config.primaryColor,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          onPressed: _selected == null
-                              ? null
-                              : () => widget.onChosen(_selected!),
-                          child: Text(
-                            t('Continuer', 'متابعة'),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87),
-                          ),
+                          onPressed:
+                              (_selected == null || _validating) ? null : _continuer,
+                          child: _validating
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black87,
+                                  ),
+                                )
+                              : Text(
+                                  t('Continuer', 'متابعة'),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87),
+                                ),
                         ),
                       ),
                     ],

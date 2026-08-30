@@ -22,7 +22,6 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
   bool _loading = false;
   bool _modeInscription = false;
   bool _motDePasseVisible = false;
-  bool _googleLoading = false;
   String? _error;
 
   @override
@@ -85,39 +84,6 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
     }
   }
 
-  Future<void> _connexionGoogle() async {
-    setState(() {
-      _googleLoading = true;
-      _error = null;
-    });
-    try {
-      await StoreService.signInWithGoogle();
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => StoreDashboardScreen(config: widget.config),
-        ),
-      );
-    } catch (e) {
-      final raw = e.toString();
-      // ApiException: 10 = DEVELOPER_ERROR → SHA-1 manquant dans Firebase
-      String msg;
-      if (raw.contains('ApiException: 10') || raw.contains('sign_in_failed')) {
-        msg = 'Connexion Google indisponible pour le moment.\n'
-            'Utilise le téléphone ou l’e-mail, ou contacte le support '
-            '(config SHA-1 Firebase à vérifier).';
-      } else if (raw.contains('annulée') || raw.contains('canceled')) {
-        msg = 'Connexion Google annulée.';
-      } else {
-        msg = raw.replaceFirst('Exception: ', '');
-      }
-      setState(() => _error = msg);
-    } finally {
-      if (mounted) setState(() => _googleLoading = false);
-    }
-  }
-
   InputDecoration _fieldDecoration({
     required String label,
     required String hint,
@@ -150,7 +116,7 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final primary = widget.config.primaryColor;
-    final busy = _loading || _googleLoading;
+    final busy = _loading;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -337,77 +303,6 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
                     ),
 
                     const SizedBox(height: 24),
-
-                    // Séparateur OU
-                    Row(
-                      children: [
-                        Expanded(
-                            child: Divider(color: Colors.grey.shade300)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Text(
-                            'OU',
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                            child: Divider(color: Colors.grey.shade300)),
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Google
-                    SizedBox(
-                      height: 50,
-                      child: OutlinedButton(
-                        onPressed: busy ? null : _connexionGoogle,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.black87,
-                          side: BorderSide(color: Colors.grey.shade300),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: _googleLoading
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: primary,
-                                ),
-                              )
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // Simple "G" style indicator
-                                  Text(
-                                    'G',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFFEA4335),
-                                    ),
-                                  ),
-                                  SizedBox(width: 10),
-                                  Text(
-                                    'Continuer avec Gmail',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
 
                     // Lien email
                     TextButton(

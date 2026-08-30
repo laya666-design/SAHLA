@@ -69,17 +69,13 @@ class _SplashScreenState extends State<SplashScreen> {
             : OnboardingProfileScreen(
                 config: widget.config,
                 isAr: widget.isAr,
-                onChosen: (value) async {
-                  await SettingsService.setVehicleProfile(value);
-                  if (mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            HomeScreen(config: widget.config, isAr: widget.isAr),
-                      ),
-                    );
-                  }
-                },
+                // La navigation vers l'accueil est faite par
+                // OnboardingProfileScreen lui-même (avec son propre
+                // context, toujours valide) : ce SplashScreen aura déjà
+                // été détruit par le pushReplacement ci-dessus au moment
+                // où l'utilisateur appuie sur "Continuer", donc on ne
+                // doit plus naviguer depuis ici (voir onboarding_profile_screen.dart).
+                onChosen: (value) => SettingsService.setVehicleProfile(value),
               ),
         transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (_, animation, __, child) {

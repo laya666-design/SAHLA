@@ -323,4 +323,26 @@ class MarketplaceService {
       'dateVente': FieldValue.serverTimestamp(),
     });
   }
+
+  /// Suppression définitive d'une demande par l'acheteur
+  /// (et de ses offres en sous-collection).
+  static Future<void> deleteRequest(String requestId) async {
+    final ref = FirebaseFirestore.instance
+        .collection(_requestsCollection)
+        .doc(requestId);
+    final offers = await ref.collection('offers').get();
+    final batch = FirebaseFirestore.instance.batch();
+    for (final o in offers.docs) {
+      batch.delete(o.reference);
+    }
+    batch.delete(ref);
+    await batch.commit();
+  }
+
+  /// Suppression multiple côté acheteur.
+  static Future<void> deleteRequests(List<String> requestIds) async {
+    for (final id in requestIds) {
+      await deleteRequest(id);
+    }
+  }
 }

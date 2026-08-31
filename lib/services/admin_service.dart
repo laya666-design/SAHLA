@@ -129,6 +129,13 @@ class AdminService {
     await batch.commit();
   }
 
+  /// Suppression multiple de magasins (batch par magasin).
+  static Future<void> deleteStores(List<String> storeIds) async {
+    for (final id in storeIds) {
+      await deleteStore(id);
+    }
+  }
+
   static Future<void> activerAbonnement({
     required String storeId,
     required int dureeJours,

@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import '../../config/app_config.dart';
 import '../../services/marketplace_models.dart';
+import '../../services/notification_service.dart';
 import '../../services/store_service.dart';
 import '../../widgets/screen_background.dart';
 import 'store_phone_login_screen.dart';
@@ -37,8 +40,134 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
   late final Stream<List<PartRequest>> _openRequestsStream =
       StoreService.openRequests();
 
+  // Sélection multiple + masquage local des commandes
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
+  Set<String> _hiddenIds = {};
+  StreamSubscription<List<PartRequest>>? _requestsSub;
+  int _lastKnownCount = -1; // -1 = pas encore initialisé
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHidden();
+    // Écoute dédiée pour badge + notification à l'arrivée d'une nouvelle demande
+    _requestsSub = StoreService.openRequests().listen((all) async {
+      final hidden = await StoreService.hiddenRequestIds();
+      final visible = all.where((r) => !hidden.contains(r.id)).toList();
+      final count = visible.length;
+      if (_lastKnownCount >= 0 && count > _lastKnownCount) {
+        final delta = count - _lastKnownCount;
+        HapticFeedback.mediumImpact();
+        SystemSound.play(SystemSoundType.alert);
+        await NotificationService.showNow(
+          title: 'Nouvelle demande',
+          body: delta == 1
+              ? '1 nouvelle demande reçue'
+              : '$delta nouvelles demandes reçues',
+          id: 1001,
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _hiddenIds = hidden;
+          _lastKnownCount = count;
+        });
+      } else {
+        _lastKnownCount = count;
+        _hiddenIds = hidden;
+      }
+    });
+  }
+
+  Future<void> _loadHidden() async {
+    final ids = await StoreService.hiddenRequestIds();
+    if (mounted) setState(() => _hiddenIds = ids);
+  }
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _selectionMode = !_selectionMode;
+      if (!_selectionMode) _selected.clear();
+    });
+  }
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selected.contains(id)) {
+        _selected.remove(id);
+      } else {
+        _selected.add(id);
+      }
+    });
+  }
+
+  Future<void> _hideSelected() async {
+    if (_selected.isEmpty) return;
+    final count = _selected.length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Retirer les commandes'),
+        content: Text(
+          'Retirer $count commande${count > 1 ? 's' : ''} de ta liste ? '
+          'Les données de l\'acheteur ne sont pas modifiées.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Retirer')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await StoreService.hideRequests(_selected.toList());
+    final ids = await StoreService.hiddenRequestIds();
+    if (!mounted) return;
+    setState(() {
+      _hiddenIds = ids;
+      _selected.clear();
+      _selectionMode = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(
+              '$count commande${count > 1 ? 's' : ''} retirée${count > 1 ? 's' : ''}')),
+    );
+  }
+
+  Future<void> _hideOne(String id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Retirer cette commande'),
+        content: const Text(
+          'Retirer cette commande de ta liste ? '
+          'Les données de l\'acheteur ne sont pas modifiées.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Retirer')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await StoreService.hideRequests([id]);
+    final ids = await StoreService.hiddenRequestIds();
+    if (!mounted) return;
+    setState(() => _hiddenIds = ids);
+  }
+
   @override
   void dispose() {
+    _requestsSub?.cancel();
     _player.dispose();
     super.dispose();
   }
@@ -420,33 +549,64 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
           appBar: AppBar(
             backgroundColor: widget.config.primaryColor,
             foregroundColor: Colors.white,
-            title: Text(profile?.nom.isNotEmpty == true ? profile!.nom : 'Espace Pro'),
+            title: _selectionMode
+                ? Text('${_selected.length} sélectionnée${_selected.length > 1 ? 's' : ''}')
+                : Text(profile?.nom.isNotEmpty == true ? profile!.nom : 'Espace Pro'),
+            leading: _selectionMode
+                ? IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: _toggleSelectionMode,
+                  )
+                : null,
             actions: [
-              if (profile != null)
+              if (_selectionMode) ...[
                 IconButton(
-                  tooltip: profile.aUnePosition
-                      ? 'Mettre à jour ma position'
-                      : 'Position manquante — appuie pour la renseigner',
-                  onPressed: _mettreAJourPosition,
-                  icon: Icon(
-                    profile.aUnePosition
-                        ? Icons.location_on
-                        : Icons.location_off,
-                    color: profile.aUnePosition ? null : Colors.amber,
-                  ),
+                  tooltip: 'Tout sélectionner',
+                  icon: const Icon(Icons.select_all),
+                  onPressed: () {
+                    // Sélection gérée dans le StreamBuilder via callback
+                    // On force un rebuild ; la liste visible est dans le builder.
+                    setState(() {});
+                  },
                 ),
-              if (profile != null && profile.actif)
                 IconButton(
-                  tooltip: 'Mon abonnement',
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => SubscriptionScreen(config: widget.config, profile: profile),
+                  tooltip: 'Retirer la sélection',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: _selected.isEmpty ? null : _hideSelected,
+                ),
+              ] else ...[
+                if (profile != null)
+                  IconButton(
+                    tooltip: profile.aUnePosition
+                        ? 'Mettre à jour ma position'
+                        : 'Position manquante — appuie pour la renseigner',
+                    onPressed: _mettreAJourPosition,
+                    icon: Icon(
+                      profile.aUnePosition
+                          ? Icons.location_on
+                          : Icons.location_off,
+                      color: profile.aUnePosition ? null : Colors.amber,
                     ),
                   ),
-                  icon: const Icon(Icons.workspace_premium_outlined),
+                if (profile != null && profile.actif)
+                  IconButton(
+                    tooltip: 'Mon abonnement',
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SubscriptionScreen(
+                            config: widget.config, profile: profile),
+                      ),
+                    ),
+                    icon: const Icon(Icons.workspace_premium_outlined),
+                  ),
+                IconButton(
+                  tooltip: 'Sélection multiple',
+                  icon: const Icon(Icons.checklist),
+                  onPressed: _toggleSelectionMode,
                 ),
-              IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
+                IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
+              ],
             ],
           ),
           body: ScreenBackground(
@@ -505,7 +665,33 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                 children: [
                                   Text('Commandes',
                                       style: Theme.of(context).textTheme.titleLarge),
+                                  const SizedBox(width: 8),
+                                  if (_lastKnownCount > 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '$_lastKnownCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
                                   const Spacer(),
+                                  if (_selectionMode)
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        // sélectionné via builder plus bas
+                                      },
+                                      icon: const Icon(Icons.select_all, size: 18),
+                                      label: const Text('Tout'),
+                                    ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
@@ -518,9 +704,6 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                 ],
                               ),
                             ),
-                            // StreamBuilder isolé : plus de Column+Expanded
-                            // imbriqués (cause possible de hauteur 0 sur la
-                            // liste malgré nbDocs > 0).
                             Expanded(
                               child: StreamBuilder<List<PartRequest>>(
                                 stream: _openRequestsStream,
@@ -557,7 +740,10 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                     );
                                   }
 
-                                  final requests = snapshot.data ?? [];
+                                  final all = snapshot.data ?? [];
+                                  final requests = all
+                                      .where((r) => !_hiddenIds.contains(r.id))
+                                      .toList();
 
                                   if (requests.isEmpty) {
                                     return Center(
@@ -596,17 +782,64 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                     );
                                   }
 
-                                  // Liste des commandes
                                   return ColoredBox(
                                     color: const Color(0xF2FFFFFF),
-                                    child: ListView.separated(
-                                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-                                      itemCount: requests.length,
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(height: 8),
-                                      itemBuilder: (context, i) {
-                                        return _carteCommande(requests[i]);
-                                      },
+                                    child: Column(
+                                      children: [
+                                        if (_selectionMode)
+                                          Padding(
+                                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                                            child: Row(
+                                              children: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      if (_selected.length ==
+                                                          requests.length) {
+                                                        _selected.clear();
+                                                      } else {
+                                                        _selected
+                                                          ..clear()
+                                                          ..addAll(
+                                                              requests.map((r) => r.id));
+                                                      }
+                                                    });
+                                                  },
+                                                  child: Text(
+                                                    _selected.length == requests.length
+                                                        ? 'Tout désélectionner'
+                                                        : 'Tout sélectionner',
+                                                  ),
+                                                ),
+                                                const Spacer(),
+                                                FilledButton.icon(
+                                                  onPressed: _selected.isEmpty
+                                                      ? null
+                                                      : _hideSelected,
+                                                  icon: const Icon(Icons.delete_outline,
+                                                      size: 18),
+                                                  label: Text(
+                                                      'Retirer (${_selected.length})'),
+                                                  style: FilledButton.styleFrom(
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        Expanded(
+                                          child: ListView.separated(
+                                            padding: const EdgeInsets.fromLTRB(
+                                                12, 8, 12, 16),
+                                            itemCount: requests.length,
+                                            separatorBuilder: (_, __) =>
+                                                const SizedBox(height: 8),
+                                            itemBuilder: (context, i) {
+                                              return _carteCommande(requests[i]);
+                                            },
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   );
                                 },
@@ -626,20 +859,41 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
         : (r.compatibilite.isNotEmpty
             ? r.compatibilite.join(', ')
             : 'Sans référence');
+    final selected = _selected.contains(r.id);
 
     return Material(
-      color: Colors.white,
+      color: selected ? widget.config.primaryColor.withOpacity(0.08) : Colors.white,
       elevation: 2,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: () {
-          if (r.photoUrl.isNotEmpty) _voirPhoto(r.photoUrl);
+          if (_selectionMode) {
+            _toggleSelected(r.id);
+          } else if (r.photoUrl.isNotEmpty) {
+            _voirPhoto(r.photoUrl);
+          }
+        },
+        onLongPress: () {
+          if (!_selectionMode) {
+            setState(() {
+              _selectionMode = true;
+              _selected.add(r.id);
+            });
+          }
         },
         borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
+              if (_selectionMode) ...[
+                Checkbox(
+                  value: selected,
+                  onChanged: (_) => _toggleSelected(r.id),
+                  activeColor: widget.config.primaryColor,
+                ),
+                const SizedBox(width: 4),
+              ],
               // Photo ou icône
               if (r.photoUrl.isNotEmpty)
                 ClipRRect(
@@ -693,31 +947,44 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                   ],
                 ),
               ),
-              if (r.aUneNoteVocale) ...[
-                const SizedBox(width: 4),
-                IconButton(
-                  onPressed: () => _ecouterNoteVocale(r.noteVocaleUrl!),
-                  icon: Icon(
-                    _noteVocaleEnCours == r.noteVocaleUrl
-                        ? Icons.pause_circle
-                        : Icons.play_circle_outline,
-                    color: widget.config.primaryColor,
+              if (!_selectionMode) ...[
+                if (r.aUneNoteVocale) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    onPressed: () => _ecouterNoteVocale(r.noteVocaleUrl!),
+                    icon: Icon(
+                      _noteVocaleEnCours == r.noteVocaleUrl
+                          ? Icons.pause_circle
+                          : Icons.play_circle_outline,
+                      color: widget.config.primaryColor,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
                   ),
+                ],
+                const SizedBox(width: 4),
+                FilledButton(
+                  onPressed: () => _repondre(r),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child:
+                      const Text('Répondre', style: TextStyle(fontSize: 13)),
+                ),
+                IconButton(
+                  tooltip: 'Retirer',
+                  onPressed: () => _hideOne(r.id),
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  color: Colors.red.shade400,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
               ],
-              const SizedBox(width: 4),
-              FilledButton(
-                onPressed: () => _repondre(r),
-                style: FilledButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('Répondre', style: TextStyle(fontSize: 13)),
-              ),
             ],
           ),
         ),

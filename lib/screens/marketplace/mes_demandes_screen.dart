@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
 import '../../services/location_service.dart';
 import '../../services/marketplace_models.dart';
 import '../../services/marketplace_service.dart';
+import '../../services/notification_service.dart';
 
 class MesDemandesScreen extends StatefulWidget {
   final AppConfig config;
@@ -26,10 +30,84 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
   // : la carte de la réponse s'affiche quand même, juste sans distance.
   LocationResult? _maPosition;
 
+  // État local (remplace les StreamBuilder imbriqués pour la sélection
+  // multiple + détection de nouvelles réponses).
+  List<PartRequest> _requests = [];
+  final Map<String, List<PartOffer>> _offersCache = {};
+  final Map<String, int> _lastOfferCounts = {};
+  StreamSubscription<List<PartRequest>>? _requestsSub;
+  final Map<String, StreamSubscription<List<PartOffer>>> _offerSubs = {};
+  bool _loading = true;
+  String? _error;
+
+  // Sélection multiple
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
+
   @override
   void initState() {
     super.initState();
     _chargerMaPosition();
+    _subscribeRequests();
+  }
+
+  void _subscribeRequests() {
+    _requestsSub?.cancel();
+    _requestsSub = MarketplaceService.myRequests().listen(
+      (list) {
+        if (!mounted) return;
+        setState(() {
+          _requests = list;
+          _loading = false;
+          _error = null;
+        });
+        // Abonner les offres pour chaque demande ouverte
+        final ids = list.map((r) => r.id).toSet();
+        // Annuler les abonnements obsolètes
+        for (final id in _offerSubs.keys.toList()) {
+          if (!ids.contains(id)) {
+            _offerSubs[id]?.cancel();
+            _offerSubs.remove(id);
+            _offersCache.remove(id);
+            _lastOfferCounts.remove(id);
+          }
+        }
+        for (final r in list) {
+          if (!_offerSubs.containsKey(r.id)) {
+            _offerSubs[r.id] = MarketplaceService.offersFor(r.id).listen(
+              (offers) {
+                if (!mounted) return;
+                final prev = _lastOfferCounts[r.id] ?? -1;
+                if (prev >= 0 && offers.length > prev) {
+                  final delta = offers.length - prev;
+                  HapticFeedback.mediumImpact();
+                  SystemSound.play(SystemSoundType.alert);
+                  NotificationService.showNow(
+                    title: 'Nouvelle réponse',
+                    body: delta == 1
+                        ? '1 magasin a répondu à « ${r.pieceNom.isEmpty ? 'ta demande' : r.pieceNom} »'
+                        : '$delta magasins ont répondu à « ${r.pieceNom.isEmpty ? 'ta demande' : r.pieceNom} »',
+                    id: 2000 + (r.id.hashCode & 0xffff),
+                  );
+                }
+                setState(() {
+                  _offersCache[r.id] = offers;
+                  _lastOfferCounts[r.id] = offers.length;
+                });
+              },
+              onError: (_) {},
+            );
+          }
+        }
+      },
+      onError: (e) {
+        if (!mounted) return;
+        setState(() {
+          _error = '$e';
+          _loading = false;
+        });
+      },
+    );
   }
 
   Future<void> _chargerMaPosition() async {
@@ -41,8 +119,107 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
 
   @override
   void dispose() {
+    _requestsSub?.cancel();
+    for (final s in _offerSubs.values) {
+      s.cancel();
+    }
     _player.dispose();
     super.dispose();
+  }
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _selectionMode = !_selectionMode;
+      if (!_selectionMode) _selected.clear();
+    });
+  }
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selected.contains(id)) {
+        _selected.remove(id);
+      } else {
+        _selected.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selected.isEmpty) return;
+    final count = _selected.length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer les demandes'),
+        content: Text(
+          'Supprimer définitivement $count demande${count > 1 ? 's' : ''} '
+          'et leurs réponses ? Action irréversible.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Supprimer')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await MarketplaceService.deleteRequests(_selected.toList());
+      if (!mounted) return;
+      setState(() {
+        _selected.clear();
+        _selectionMode = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                '$count demande${count > 1 ? 's' : ''} supprimée${count > 1 ? 's' : ''}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteOne(String id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer la demande'),
+        content: const Text(
+          'Supprimer définitivement cette demande et ses réponses ? '
+          'Action irréversible.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Supprimer')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await MarketplaceService.deleteRequest(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Demande supprimée')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    }
   }
 
   Future<void> _call(String tel) async {
@@ -170,241 +347,263 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
     );
   }
 
+  Widget _buildOffers(PartRequest r) {
+    if (!r.estOuverte && !r.estVendue) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('Demande clôturée.',
+            style: TextStyle(fontSize: 13, color: Colors.black54)),
+      );
+    }
+    final offers = _offersCache[r.id];
+    if (offers == null) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (offers.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'Pas encore de réponse. Les magasins sont '
+          'notifiés, reviens un peu plus tard.',
+          style: TextStyle(fontSize: 13, color: Colors.black54),
+        ),
+      );
+    }
+    return Column(
+      children: offers.map((o) {
+        final sousTitre = o.stock.isEmpty
+            ? (o.message.isEmpty ? '' : o.message)
+            : '${o.stock}${o.message.isNotEmpty ? ' — ${o.message}' : ''}';
+        final distance = _distanceVers(o);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _bandeauNoteVocale(o),
+            ListTile(
+              title: Text(
+                o.storeNom.isEmpty ? 'Magasin' : o.storeNom,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    sousTitre.isEmpty ? 'Sans précision' : sousTitre,
+                  ),
+                  if (o.aUnePosition)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.location_on,
+                              size: 14, color: widget.config.primaryColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            distance != null
+                                ? 'à $distance km de toi'
+                                : 'Position connue',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: widget.config.primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              isThreeLine: o.aUnePosition,
+              trailing: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${o.prix} DA',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (o.aUnePosition)
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Voir le magasin sur la carte',
+                          icon: const Icon(Icons.map_outlined, size: 20),
+                          onPressed: () =>
+                              _voirSurLaCarte(o.storeLat!, o.storeLng!),
+                        ),
+                      if (o.storeTel.isNotEmpty)
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.call, size: 20),
+                          onPressed: () => _call(o.storeTel),
+                        ),
+                      if (r.estOuverte)
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Marquer comme vendue',
+                          icon: const Icon(Icons.check_circle_outline,
+                              size: 20, color: Colors.green),
+                          onPressed: () => _marquerVendu(context, r, o),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: widget.config.primaryColor,
         foregroundColor: Colors.white,
-        title: const Text('Mes demandes'),
+        title: _selectionMode
+            ? Text(
+                '${_selected.length} sélectionnée${_selected.length > 1 ? 's' : ''}')
+            : const Text('Mes demandes'),
+        leading: _selectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _toggleSelectionMode,
+              )
+            : null,
+        actions: [
+          if (_selectionMode) ...[
+            IconButton(
+              tooltip: 'Tout sélectionner',
+              icon: const Icon(Icons.select_all),
+              onPressed: () {
+                setState(() {
+                  if (_selected.length == _requests.length) {
+                    _selected.clear();
+                  } else {
+                    _selected
+                      ..clear()
+                      ..addAll(_requests.map((r) => r.id));
+                  }
+                });
+              },
+            ),
+            IconButton(
+              tooltip: 'Supprimer la sélection',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _selected.isEmpty ? null : _deleteSelected,
+            ),
+          ] else ...[
+            IconButton(
+              tooltip: 'Sélection multiple',
+              icon: const Icon(Icons.checklist),
+              onPressed: _toggleSelectionMode,
+            ),
+          ],
+        ],
       ),
-      body: StreamBuilder<List<PartRequest>>(
-        stream: MarketplaceService.myRequests(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text('Erreur : ${snapshot.error}'),
-              ),
-            );
-          }
-          final requests = snapshot.data ?? [];
-          if (requests.isEmpty) {
-            return const Center(
-              child: Text('Aucune demande diffusée pour le moment.'),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: requests.length,
-            itemBuilder: (context, i) {
-              final r = requests[i];
-              final isOpen = _ouvertes.contains(r.id);
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: ExpansionTile(
-                  // Clé stable + état mémorisé → ne se referme pas au play
-                  key: PageStorageKey('demande_${r.id}'),
-                  maintainState: true,
-                  initiallyExpanded: isOpen,
-                  onExpansionChanged: (open) {
-                    setState(() {
-                      if (open) {
-                        _ouvertes.add(r.id);
-                      } else {
-                        _ouvertes.remove(r.id);
-                      }
-                    });
-                  },
-                  leading: r.photoUrl.isNotEmpty
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: Image.network(r.photoUrl,
-                              width: 48, height: 48, fit: BoxFit.cover),
-                        )
-                      : const Icon(Icons.build),
-                  title: Text(r.pieceNom.isEmpty ? 'Pièce' : r.pieceNom),
-                  subtitle: Text(
-                    _statutLabel(r),
-                    style: TextStyle(
-                      color: _statutColor(r),
-                      fontSize: 12,
-                    ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('Erreur : $_error'),
                   ),
-                  children: [
-                    if (!r.estOuverte && !r.estVendue)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text('Demande clôturée.',
-                            style: TextStyle(
-                                fontSize: 13, color: Colors.black54)),
-                      )
-                    else
-                      StreamBuilder<List<PartOffer>>(
-                        stream: MarketplaceService.offersFor(r.id),
-                        builder: (context, offerSnap) {
-                          final offers = offerSnap.data ?? [];
-                          if (offerSnap.connectionState ==
-                                  ConnectionState.waiting &&
-                              offers.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Center(
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2)),
-                            );
-                          }
-                          if (offers.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16),
+                )
+              : _requests.isEmpty
+                  ? const Center(
+                      child: Text('Aucune demande diffusée pour le moment.'),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _requests.length,
+                      itemBuilder: (context, i) {
+                        final r = _requests[i];
+                        final isOpen = _ouvertes.contains(r.id);
+                        final selected = _selected.contains(r.id);
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          color: selected
+                              ? widget.config.primaryColor.withOpacity(0.08)
+                              : null,
+                          child: ExpansionTile(
+                            key: PageStorageKey('demande_${r.id}'),
+                            maintainState: true,
+                            initiallyExpanded: isOpen,
+                            onExpansionChanged: (open) {
+                              if (_selectionMode) return;
+                              setState(() {
+                                if (open) {
+                                  _ouvertes.add(r.id);
+                                } else {
+                                  _ouvertes.remove(r.id);
+                                }
+                              });
+                            },
+                            leading: _selectionMode
+                                ? Checkbox(
+                                    value: selected,
+                                    onChanged: (_) => _toggleSelected(r.id),
+                                    activeColor: widget.config.primaryColor,
+                                  )
+                                : (r.photoUrl.isNotEmpty
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Image.network(r.photoUrl,
+                                            width: 48,
+                                            height: 48,
+                                            fit: BoxFit.cover),
+                                      )
+                                    : const Icon(Icons.build)),
+                            title: GestureDetector(
+                              onTap: _selectionMode
+                                  ? () => _toggleSelected(r.id)
+                                  : null,
+                              onLongPress: () {
+                                if (!_selectionMode) {
+                                  setState(() {
+                                    _selectionMode = true;
+                                    _selected.add(r.id);
+                                  });
+                                }
+                              },
                               child: Text(
-                                'Pas encore de réponse. Les magasins sont '
-                                'notifiés, reviens un peu plus tard.',
-                                style: TextStyle(
-                                    fontSize: 13, color: Colors.black54),
+                                  r.pieceNom.isEmpty ? 'Pièce' : r.pieceNom),
+                            ),
+                            subtitle: Text(
+                              _statutLabel(r),
+                              style: TextStyle(
+                                color: _statutColor(r),
+                                fontSize: 12,
                               ),
-                            );
-                          }
-                          return Column(
-                            children: offers.map((o) {
-                              final sousTitre = o.stock.isEmpty
-                                  ? (o.message.isEmpty ? '' : o.message)
-                                  : '${o.stock}${o.message.isNotEmpty ? ' — ${o.message}' : ''}';
-                              final distance = _distanceVers(o);
-                              return Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.stretch,
-                                children: [
-                                  // Vocal EN HAUT de l'offre
-                                  _bandeauNoteVocale(o),
-                                  ListTile(
-                                    title: Text(
-                                      o.storeNom.isEmpty
-                                          ? 'Magasin'
-                                          : o.storeNom,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          sousTitre.isEmpty
-                                              ? 'Sans précision'
-                                              : sousTitre,
-                                        ),
-                                        if (o.aUnePosition)
-                                          Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 2),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.location_on,
-                                                    size: 14,
-                                                    color: widget
-                                                        .config.primaryColor),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  distance != null
-                                                      ? 'à $distance km de toi'
-                                                      : 'Position connue',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: widget
-                                                        .config.primaryColor,
-                                                    fontWeight:
-                                                        FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    isThreeLine: o.aUnePosition,
-                                    trailing: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          '${o.prix} DA',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (o.aUnePosition)
-                                              IconButton(
-                                                padding: EdgeInsets.zero,
-                                                constraints:
-                                                    const BoxConstraints(),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                tooltip:
-                                                    'Voir le magasin sur la carte',
-                                                icon: const Icon(
-                                                    Icons.map_outlined,
-                                                    size: 20),
-                                                onPressed: () =>
-                                                    _voirSurLaCarte(
-                                                        o.storeLat!,
-                                                        o.storeLng!),
-                                              ),
-                                            if (o.storeTel.isNotEmpty)
-                                              IconButton(
-                                                padding: EdgeInsets.zero,
-                                                constraints:
-                                                    const BoxConstraints(),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                icon: const Icon(Icons.call,
-                                                    size: 20),
-                                                onPressed: () =>
-                                                    _call(o.storeTel),
-                                              ),
-                                            if (r.estOuverte)
-                                              IconButton(
-                                                padding: EdgeInsets.zero,
-                                                constraints:
-                                                    const BoxConstraints(),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                tooltip:
-                                                    'Marquer comme vendue',
-                                                icon: const Icon(
-                                                    Icons.check_circle_outline,
-                                                    size: 20,
-                                                    color: Colors.green),
-                                                onPressed: () =>
-                                                    _marquerVendu(
-                                                        context, r, o),
-                                              ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
+                            ),
+                            trailing: _selectionMode
+                                ? null
+                                : IconButton(
+                                    tooltip: 'Supprimer',
+                                    icon: Icon(Icons.delete_outline,
+                                        size: 20, color: Colors.red.shade400),
+                                    onPressed: () => _deleteOne(r.id),
                                   ),
-                                ],
-                              );
-                            }).toList(),
-                          );
-                        },
-                      ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                            children: [_buildOffers(r)],
+                          ),
+                        );
+                      },
+                    ),
     );
   }
 }

@@ -94,7 +94,70 @@ class _StoresTabState extends State<_StoresTab> {
   late final Stream<List<StoreProfile>> _storesStream =
       AdminService.watchStores();
 
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
+
   AppConfig get config => widget.config;
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _selectionMode = !_selectionMode;
+      if (!_selectionMode) _selected.clear();
+    });
+  }
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selected.contains(id)) {
+        _selected.remove(id);
+      } else {
+        _selected.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selected.isEmpty) return;
+    final count = _selected.length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer les magasins'),
+        content: Text(
+          'Supprimer définitivement $count magasin${count > 1 ? 's' : ''} '
+          'sélectionné${count > 1 ? 's' : ''} ? Action irréversible.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Supprimer')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await AdminService.deleteStores(_selected.toList());
+      if (!mounted) return;
+      setState(() {
+        _selected.clear();
+        _selectionMode = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                '$count magasin${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +222,53 @@ class _StoresTabState extends State<_StoresTab> {
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              child: Row(
+                children: [
+                  if (_selectionMode) ...[
+                    Text(
+                      '${_selected.length} sélectionné${_selected.length > 1 ? 's' : ''}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: 'Tout sélectionner',
+                      icon: const Icon(Icons.select_all),
+                      onPressed: () {
+                        setState(() {
+                          if (_selected.length == stores.length) {
+                            _selected.clear();
+                          } else {
+                            _selected
+                              ..clear()
+                              ..addAll(stores.map((s) => s.uid));
+                          }
+                        });
+                      },
+                    ),
+                    IconButton(
+                      tooltip: 'Supprimer la sélection',
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      onPressed:
+                          _selected.isEmpty ? null : _deleteSelected,
+                    ),
+                    IconButton(
+                      tooltip: 'Annuler',
+                      icon: const Icon(Icons.close),
+                      onPressed: _toggleSelectionMode,
+                    ),
+                  ] else ...[
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _toggleSelectionMode,
+                      icon: const Icon(Icons.checklist, size: 18),
+                      label: const Text('Sélection'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(12),
@@ -166,6 +276,9 @@ class _StoresTabState extends State<_StoresTab> {
                 itemBuilder: (context, i) => _StoreCard(
                   store: stores[i],
                   config: config,
+                  selectionMode: _selectionMode,
+                  selected: _selected.contains(stores[i].uid),
+                  onToggleSelect: () => _toggleSelected(stores[i].uid),
                 ),
               ),
             ),
@@ -212,7 +325,16 @@ class _StatChip extends StatelessWidget {
 class _StoreCard extends StatelessWidget {
   final StoreProfile store;
   final AppConfig config;
-  const _StoreCard({required this.store, required this.config});
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelect;
+  const _StoreCard({
+    required this.store,
+    required this.config,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelect,
+  });
 
   Color get _badgeColor {
     if (!store.actif) return Colors.orange;
@@ -391,8 +513,23 @@ class _StoreCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
+      color: selected ? config.primaryColor.withOpacity(0.08) : null,
       child: ListTile(
-        onTap: () => _showActions(context),
+        onTap: () {
+          if (selectionMode) {
+            onToggleSelect?.call();
+          } else {
+            _showActions(context);
+          }
+        },
+        onLongPress: selectionMode ? null : onToggleSelect,
+        leading: selectionMode
+            ? Checkbox(
+                value: selected,
+                onChanged: (_) => onToggleSelect?.call(),
+                activeColor: config.primaryColor,
+              )
+            : null,
         title: Text(
           store.nom.isEmpty ? '(sans nom)' : store.nom,
           style: const TextStyle(fontWeight: FontWeight.w600),

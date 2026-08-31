@@ -596,6 +596,25 @@ class StoreService {
     });
   }
 
+  /// IDs des demandes que CE magasin a choisi de masquer localement
+  /// (ne touche jamais aux données de l'acheteur).
+  static const _hiddenRequestsKey = 'store_hidden_request_ids';
+
+  static Future<Set<String>> hiddenRequestIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_hiddenRequestsKey) ?? [];
+    return list.toSet();
+  }
+
+  /// Masque une ou plusieurs demandes côté magasin uniquement.
+  static Future<void> hideRequests(List<String> requestIds) async {
+    if (requestIds.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getStringList(_hiddenRequestsKey) ?? [];
+    final merged = {...current, ...requestIds}.toList();
+    await prefs.setStringList(_hiddenRequestsKey, merged);
+  }
+
   /// Le magasin répond à une demande avec un prix.
   /// [noteVocale] optionnelle : fichier audio local à uploader (même
   /// logique que la note vocale côté acheteur).

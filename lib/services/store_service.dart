@@ -615,6 +615,24 @@ class StoreService {
     await prefs.setStringList(_hiddenRequestsKey, merged);
   }
 
+  /// IDs des demandes déjà consultées par ce magasin (pour le badge non-lu).
+  static const _seenRequestsKey = 'store_seen_request_ids';
+
+  static Future<Set<String>> seenRequestIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_seenRequestsKey) ?? [];
+    return list.toSet();
+  }
+
+  /// Marque une ou plusieurs demandes comme consultées (badge diminue).
+  static Future<void> markRequestsSeen(List<String> requestIds) async {
+    if (requestIds.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getStringList(_seenRequestsKey) ?? [];
+    final merged = {...current, ...requestIds}.toList();
+    await prefs.setStringList(_seenRequestsKey, merged);
+  }
+
   /// Le magasin répond à une demande avec un prix.
   /// [noteVocale] optionnelle : fichier audio local à uploader (même
   /// logique que la note vocale côté acheteur).

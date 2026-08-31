@@ -328,40 +328,67 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                                       ],
                                     ),
                                     isThreeLine: o.aUnePosition,
-                                    trailing: Row(
+                                    trailing: Column(
                                       mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
                                       children: [
                                         Text(
                                           '${o.prix} DA',
                                           style: const TextStyle(
                                               fontWeight: FontWeight.bold),
                                         ),
-                                        if (o.aUnePosition)
-                                          IconButton(
-                                            tooltip:
-                                                'Voir le magasin sur la carte',
-                                            icon: const Icon(Icons.map_outlined,
-                                                size: 20),
-                                            onPressed: () => _voirSurLaCarte(
-                                                o.storeLat!, o.storeLng!),
-                                          ),
-                                        if (o.storeTel.isNotEmpty)
-                                          IconButton(
-                                            icon: const Icon(Icons.call,
-                                                size: 20),
-                                            onPressed: () =>
-                                                _call(o.storeTel),
-                                          ),
-                                        if (r.estOuverte)
-                                          IconButton(
-                                            tooltip: 'Marquer comme vendue',
-                                            icon: const Icon(
-                                                Icons.check_circle_outline,
-                                                size: 20,
-                                                color: Colors.green),
-                                            onPressed: () => _marquerVendu(
-                                                context, r, o),
-                                          ),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (o.aUnePosition)
+                                              IconButton(
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                tooltip:
+                                                    'Voir le magasin sur la carte',
+                                                icon: const Icon(
+                                                    Icons.map_outlined,
+                                                    size: 20),
+                                                onPressed: () =>
+                                                    _voirSurLaCarte(
+                                                        o.storeLat!,
+                                                        o.storeLng!),
+                                              ),
+                                            if (o.storeTel.isNotEmpty)
+                                              IconButton(
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                icon: const Icon(Icons.call,
+                                                    size: 20),
+                                                onPressed: () =>
+                                                    _call(o.storeTel),
+                                              ),
+                                            if (r.estOuverte)
+                                              IconButton(
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                tooltip:
+                                                    'Marquer comme vendue',
+                                                icon: const Icon(
+                                                    Icons.check_circle_outline,
+                                                    size: 20,
+                                                    color: Colors.green),
+                                                onPressed: () =>
+                                                    _marquerVendu(
+                                                        context, r, o),
+                                              ),
+                                          ],
+                                        ),
                                       ],
                                     ),
                                   ),

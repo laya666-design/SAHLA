@@ -497,6 +497,235 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     );
   }
 
+  /// Affiche le détail complet d'une commande (photo + infos + note vocale + Répondre).
+  /// Avant, un simple tap sur la carte n'ouvrait que la photo.
+  void _afficherDetailCommande(PartRequest r) {
+    final sousTitre = r.reference.isNotEmpty
+        ? 'Réf: ${r.reference}'
+        : (r.compatibilite.isNotEmpty
+            ? r.compatibilite.join(', ')
+            : 'Sans référence');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.88,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Poignée
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  // En-tête
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            r.pieceNom.isEmpty ? 'Pièce non nommée' : r.pieceNom,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Photo (tap → plein écran)
+                          if (r.photoUrl.isNotEmpty) ...[
+                            GestureDetector(
+                              onTap: () => _voirPhoto(r.photoUrl),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: AspectRatio(
+                                  aspectRatio: 4 / 3,
+                                  child: Image.network(
+                                    r.photoUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: Colors.grey.shade200,
+                                      child: const Icon(Icons.broken_image,
+                                          size: 48, color: Colors.grey),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Appuyer pour agrandir',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+
+                          // Infos
+                          _detailLigne(
+                            Icons.qr_code_2,
+                            'Référence / Compatibilité',
+                            sousTitre,
+                          ),
+                          if (r.compatibilite.isNotEmpty &&
+                              r.reference.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            _detailLigne(
+                              Icons.directions_car_outlined,
+                              'Compatibilité',
+                              r.compatibilite.join(', '),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          _detailLigne(
+                            Icons.schedule,
+                            'Date de la demande',
+                            _formatDate(r.dateCreation),
+                          ),
+
+                          // Note vocale du client
+                          if (r.aUneNoteVocale) ...[
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Message vocal du client',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 14),
+                            ),
+                            const SizedBox(height: 8),
+                            Material(
+                              color: widget.config.primaryColor
+                                  .withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () async {
+                                  await _ecouterNoteVocale(r.noteVocaleUrl!);
+                                  setSheet(() {});
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _noteVocaleEnCours == r.noteVocaleUrl
+                                            ? Icons.pause_circle_filled
+                                            : Icons.play_circle_filled,
+                                        color: widget.config.primaryColor,
+                                        size: 36,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          _noteVocaleEnCours == r.noteVocaleUrl
+                                              ? 'Lecture en cours…'
+                                              : 'Écouter le message vocal',
+                                          style: TextStyle(
+                                            color: widget.config.primaryColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+
+                          const SizedBox(height: 24),
+                          // Bouton Répondre
+                          FilledButton.icon(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _repondre(r);
+                            },
+                            icon: const Icon(Icons.reply),
+                            label: const Text('Répondre à cette demande'),
+                            style: FilledButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              textStyle: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _detailLigne(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey.shade700),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime d) {
+    final now = DateTime.now();
+    final diff = now.difference(d);
+    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'Il y a ${diff.inHours} h';
+    if (diff.inDays < 7) return 'Il y a ${diff.inDays} j';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<StoreProfile?>(
@@ -869,8 +1098,10 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
         onTap: () {
           if (_selectionMode) {
             _toggleSelected(r.id);
-          } else if (r.photoUrl.isNotEmpty) {
-            _voirPhoto(r.photoUrl);
+          } else {
+            // Ouvre le détail complet (photo + infos + message vocal + Répondre)
+            // au lieu d'afficher uniquement la photo.
+            _afficherDetailCommande(r);
           }
         },
         onLongPress: () {

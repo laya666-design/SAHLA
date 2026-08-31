@@ -44,18 +44,22 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
   bool _selectionMode = false;
   final Set<String> _selected = {};
   Set<String> _hiddenIds = {};
+  Set<String> _seenIds = {};
   StreamSubscription<List<PartRequest>>? _requestsSub;
-  int _lastKnownCount = -1; // -1 = pas encore initialisé
+  int _lastKnownCount = -1; // total visible (pour détecter nouvelles arrivées)
+  int _unreadCount = 0; // badge = non consultées
 
   @override
   void initState() {
     super.initState();
-    _loadHidden();
+    _loadHiddenAndSeen();
     // Écoute dédiée pour badge + notification à l'arrivée d'une nouvelle demande
     _requestsSub = StoreService.openRequests().listen((all) async {
       final hidden = await StoreService.hiddenRequestIds();
+      final seen = await StoreService.seenRequestIds();
       final visible = all.where((r) => !hidden.contains(r.id)).toList();
       final count = visible.length;
+      final unread = visible.where((r) => !seen.contains(r.id)).length;
       if (_lastKnownCount >= 0 && count > _lastKnownCount) {
         final delta = count - _lastKnownCount;
         HapticFeedback.mediumImpact();
@@ -71,18 +75,38 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
       if (mounted) {
         setState(() {
           _hiddenIds = hidden;
+          _seenIds = seen;
           _lastKnownCount = count;
+          _unreadCount = unread;
         });
       } else {
         _lastKnownCount = count;
+        _unreadCount = unread;
         _hiddenIds = hidden;
+        _seenIds = seen;
       }
     });
   }
 
-  Future<void> _loadHidden() async {
-    final ids = await StoreService.hiddenRequestIds();
-    if (mounted) setState(() => _hiddenIds = ids);
+  Future<void> _loadHiddenAndSeen() async {
+    final hidden = await StoreService.hiddenRequestIds();
+    final seen = await StoreService.seenRequestIds();
+    if (mounted) {
+      setState(() {
+        _hiddenIds = hidden;
+        _seenIds = seen;
+      });
+    }
+  }
+
+  Future<void> _marquerVue(String requestId) async {
+    if (_seenIds.contains(requestId)) return;
+    await StoreService.markRequestsSeen([requestId]);
+    if (!mounted) return;
+    setState(() {
+      _seenIds = {..._seenIds, requestId};
+      _unreadCount = (_unreadCount - 1).clamp(0, 9999);
+    });
   }
 
   void _toggleSelectionMode() {
@@ -500,6 +524,9 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
   /// Affiche le détail complet d'une commande (photo + infos + note vocale + Répondre).
   /// Avant, un simple tap sur la carte n'ouvrait que la photo.
   void _afficherDetailCommande(PartRequest r) {
+    // Consulter = marquer comme lu → le badge diminue
+    _marquerVue(r.id);
+
     final sousTitre = r.reference.isNotEmpty
         ? 'Réf: ${r.reference}'
         : (r.compatibilite.isNotEmpty
@@ -895,7 +922,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                   Text('Commandes',
                                       style: Theme.of(context).textTheme.titleLarge),
                                   const SizedBox(width: 8),
-                                  if (_lastKnownCount > 0)
+                                  if (_unreadCount > 0)
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 2),
@@ -904,7 +931,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        '$_lastKnownCount',
+                                        '$_unreadCount',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
@@ -1196,7 +1223,10 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                 ],
                 const SizedBox(width: 4),
                 FilledButton(
-                  onPressed: () => _repondre(r),
+                  onPressed: () {
+                    _marquerVue(r.id);
+                    _repondre(r);
+                  },
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 8),

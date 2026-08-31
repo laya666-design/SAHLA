@@ -287,6 +287,11 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
   String _statutLabel(PartRequest r) {
     switch (r.statut) {
       case 'open':
+        final offers = _offersCache[r.id];
+        if (offers != null && offers.isNotEmpty) {
+          final n = offers.length;
+          return n == 1 ? '1 réponse reçue' : '$n réponses reçues';
+        }
         return 'En attente de réponses';
       case 'vendu':
         return 'Vendue chez ${r.soldToStoreNom ?? ''}';
@@ -298,6 +303,10 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
   Color _statutColor(PartRequest r) {
     switch (r.statut) {
       case 'open':
+        final offers = _offersCache[r.id];
+        if (offers != null && offers.isNotEmpty) {
+          return widget.config.primaryColor;
+        }
         return Colors.orange;
       case 'vendu':
         return Colors.green;
@@ -418,48 +427,55 @@ class _MesDemandesScreenState extends State<MesDemandesScreen> {
                 ],
               ),
               isThreeLine: o.aUnePosition,
-              trailing: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${o.prix} DA',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (o.aUnePosition)
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Voir le magasin sur la carte',
-                          icon: const Icon(Icons.map_outlined, size: 20),
-                          onPressed: () =>
-                              _voirSurLaCarte(o.storeLat!, o.storeLng!),
-                        ),
-                      if (o.storeTel.isNotEmpty)
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.call, size: 20),
-                          onPressed: () => _call(o.storeTel),
-                        ),
-                      if (r.estOuverte)
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Marquer comme vendue',
-                          icon: const Icon(Icons.check_circle_outline,
-                              size: 20, color: Colors.green),
-                          onPressed: () => _marquerVendu(context, r, o),
-                        ),
-                    ],
-                  ),
-                ],
+              // trailing compact pour éviter "BOTTOM OVERFLOWED BY 2.0 PIXELS"
+              trailing: SizedBox(
+                width: 108,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${o.prix} DA',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (o.aUnePosition)
+                          InkWell(
+                            onTap: () =>
+                                _voirSurLaCarte(o.storeLat!, o.storeLng!),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.map_outlined, size: 20),
+                            ),
+                          ),
+                        if (o.storeTel.isNotEmpty)
+                          InkWell(
+                            onTap: () => _call(o.storeTel),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.call, size: 20),
+                            ),
+                          ),
+                        if (r.estOuverte)
+                          InkWell(
+                            onTap: () => _marquerVendu(context, r, o),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.check_circle_outline,
+                                  size: 20, color: Colors.green),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

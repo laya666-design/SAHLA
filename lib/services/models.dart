@@ -97,150 +97,17 @@ class CarteGriseInfo {
 
   factory CarteGriseInfo.fromJson(Map<String, dynamic>? json) {
     if (json == null) return CarteGriseInfo();
-    var marque = _cleanNull(json['marque']?.toString());
-    final modele = _cleanNull(json['modele']?.toString());
-    final chassis = _cleanNull(json['chassis']?.toString()).toUpperCase();
-    var fuelType = _cleanNull(json['fuel_type']?.toString()).toLowerCase();
-    var engineCode = _cleanNull(json['engine_code']?.toString());
-
-    // 1) Traduire le mot arabe de la case MARQUE → latin
-    marque = _arabeVersLatin(marque);
-
-    // 2) Le code type (chassis) est plus fiable que l'IA quand il y a conflit.
-    //    Ex: NCP92 = TOYOTA, jamais RENAULT/DACIA.
-    final marqueDepuisChassis = _deduireMarqueDepuisChassis(chassis);
-    if (marqueDepuisChassis.isNotEmpty) {
-      // Si l'IA a mis une mauvaise marque, on corrige avec le prefixe chassis.
-      if (marque.isEmpty ||
-          (marque != marqueDepuisChassis &&
-              _estCodeType(marque))) {
-        marque = marqueDepuisChassis;
-      } else if (marque != marqueDepuisChassis &&
-          !_marquesCompatibles(marque, marqueDepuisChassis)) {
-        // Conflit clair (ex: AI dit RENAULT mais chassis NCP) → trust chassis
-        marque = marqueDepuisChassis;
-      }
-    }
-
-    // 3) Normaliser carburant
-    if (fuelType.contains('gpl')) {
-      fuelType = 'gpl';
-    } else if (fuelType.contains('diesel') || fuelType.contains('gasoil')) {
-      fuelType = 'diesel';
-    } else if (fuelType.contains('essence')) {
-      fuelType = 'essence';
-    }
-
-    // 4) Si engine_code invente pour mauvaise marque, on nettoie
-    if (marque == 'TOYOTA' && engineCode.toUpperCase() == 'K9K') {
-      engineCode = ''; // K9K = Renault/Dacia, pas Toyota
-    }
-
     return CarteGriseInfo(
-      marque: marque,
-      modele: modele,
-      type: _cleanNull(json['type']?.toString()),
+      marque: json['marque']?.toString() ?? '',
+      modele: json['modele']?.toString() ?? '',
+      type: json['type']?.toString() ?? '',
       annee: int.tryParse(json['annee']?.toString() ?? ''),
-      chassis: chassis,
-      puissanceFiscale: _cleanNull(json['puissance_fiscale']?.toString()),
-      immatriculation: _cleanNull(json['immatriculation']?.toString()),
-      engineCode: engineCode,
-      fuelType: fuelType,
+      chassis: json['chassis']?.toString() ?? '',
+      puissanceFiscale: json['puissance_fiscale']?.toString() ?? '',
+      immatriculation: json['immatriculation']?.toString() ?? '',
+      engineCode: json['engine_code']?.toString() ?? '',
+      fuelType: json['fuel_type']?.toString() ?? '',
     );
-  }
-
-  static String _cleanNull(String? s) {
-    final t = (s ?? '').trim();
-    if (t.isEmpty || t.toLowerCase() == 'null') return '';
-    return t;
-  }
-
-  static bool _estCodeType(String s) =>
-      RegExp(r'^[A-Z0-9]{5,}$').hasMatch(s.toUpperCase());
-
-  static bool _marquesCompatibles(String a, String b) {
-    // Renault et Dacia partagent souvent les memes plateformes
-    final group = {
-      'RENAULT': 'renault_group',
-      'DACIA': 'renault_group',
-    };
-    return (group[a] ?? a) == (group[b] ?? b);
-  }
-
-  /// Traduit le mot arabe de la case MARQUE vers le latin.
-  static String _arabeVersLatin(String s) {
-    if (s.isEmpty) return s;
-    final map = <String, String>{
-      'تويوتا': 'TOYOTA',
-      'رينو': 'RENAULT',
-      'بيجو': 'PEUGEOT',
-      'سيتروين': 'CITROEN',
-      'داكيا': 'DACIA',
-      'هيونداي': 'HYUNDAI',
-      'كيا': 'KIA',
-      'نيسان': 'NISSAN',
-      'فولكس فاجن': 'VOLKSWAGEN',
-      'فولكسفاجن': 'VOLKSWAGEN',
-      'مرسيدس': 'MERCEDES',
-      'بي ام دبليو': 'BMW',
-      'سوزوكي': 'SUZUKI',
-      'شيفروليه': 'CHEVROLET',
-      'فيات': 'FIAT',
-      'اوبل': 'OPEL',
-      'سكودا': 'SKODA',
-      'ميتسوبيشي': 'MITSUBISHI',
-      'هوندا': 'HONDA',
-      'فورد': 'FORD',
-      'سيات': 'SEAT',
-      'اودي': 'AUDI',
-    };
-    for (final e in map.entries) {
-      if (s.contains(e.key)) return e.value;
-    }
-    if (RegExp(r'^[A-Za-z0-9 \-]+$').hasMatch(s)) return s.toUpperCase();
-    return s;
-  }
-
-  /// Prefixe chassis / code type → constructeur (tres fiable en Algerie).
-  static String _deduireMarqueDepuisChassis(String chassis) {
-    final c = chassis.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
-    if (c.startsWith('NCP') ||
-        c.startsWith('NSP') ||
-        c.startsWith('NZE') ||
-        c.startsWith('NZT') ||
-        c.startsWith('KSP') ||
-        c.startsWith('JT') ||
-        c.startsWith('SB1')) return 'TOYOTA';
-    if (c.startsWith('VF1') || c.startsWith('VF2')) return 'RENAULT';
-    if (c.startsWith('VF3')) return 'PEUGEOT';
-    if (c.startsWith('VF7') || c.startsWith('VR7')) return 'CITROEN';
-    if (c.startsWith('UU1') || c.startsWith('VSU')) return 'DACIA';
-    if (c.startsWith('WVW') || c.startsWith('WV1') || c.startsWith('WV2')) {
-      return 'VOLKSWAGEN';
-    }
-    if (c.startsWith('KMH') || c.startsWith('KMF') || c.startsWith('TMA')) {
-      return 'HYUNDAI';
-    }
-    if (c.startsWith('KNA') || c.startsWith('U5Y')) return 'KIA';
-    if (c.startsWith('JN1') || c.startsWith('SJN') || c.startsWith('VSK')) {
-      return 'NISSAN';
-    }
-    if (c.startsWith('WDB') || c.startsWith('WDD') || c.startsWith('W1K')) {
-      return 'MERCEDES';
-    }
-    if (c.startsWith('WBA') || c.startsWith('WBS')) return 'BMW';
-    if (c.startsWith('JSA') || c.startsWith('TSM') || c.startsWith('JS2')) {
-      return 'SUZUKI';
-    }
-    if (c.startsWith('1G1') || c.startsWith('KL1') || c.startsWith('LSG')) {
-      return 'CHEVROLET';
-    }
-    if (c.startsWith('ZFA') || c.startsWith('ZFB')) return 'FIAT';
-    if (c.startsWith('W0L') || c.startsWith('W0V')) return 'OPEL';
-    if (c.startsWith('TMB')) return 'SKODA';
-    if (c.startsWith('WAU')) return 'AUDI';
-    if (c.startsWith('JHM') || c.startsWith('JH4')) return 'HONDA';
-    return '';
   }
 
   bool get estVide =>

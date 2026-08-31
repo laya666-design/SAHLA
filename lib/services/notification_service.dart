@@ -88,31 +88,16 @@ class NotificationService {
       );
       final tzDate = tz.TZDateTime.from(dateTirSouhaitee, tz.local);
 
-      try {
-        await _plugin.zonedSchedule(
-          _notificationId(vehiculeId, typeRappel, jours),
-          '$libelleDocument — $titre',
-          'Expire dans $jours jour${jours > 1 ? 's' : ''}. Pense à renouveler.',
-          tzDate,
-          details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      } catch (_) {
-        try {
-          await _plugin.zonedSchedule(
-            _notificationId(vehiculeId, typeRappel, jours),
-            '$libelleDocument — $titre',
-            'Expire dans $jours jour${jours > 1 ? 's' : ''}. Pense à renouveler.',
-            tzDate,
-            details,
-            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-            uiLocalNotificationDateInterpretation:
-                UILocalNotificationDateInterpretation.absoluteTime,
-          );
-        } catch (_) {}
-      }
+      await _plugin.zonedSchedule(
+        _notificationId(vehiculeId, typeRappel, jours),
+        '$libelleDocument — $titre',
+        'Expire dans $jours jour${jours > 1 ? 's' : ''}. Pense à renouveler.',
+        tzDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
     }
   }
 

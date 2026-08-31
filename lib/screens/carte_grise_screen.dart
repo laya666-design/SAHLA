@@ -105,26 +105,20 @@ class _CarteGriseScreenState extends State<CarteGriseScreen> {
       return;
     }
 
-    // Mode mise à jour : on écrase avec les nouvelles valeurs du scan
-    // (l'utilisateur re-scanne souvent pour corriger une mauvaise lecture).
+    // Mode mise à jour : complète la fiche existante sans écraser les
+    // valeurs déjà connues quand le nouveau scan ne les redétecte pas.
     final v = widget.vehicule!;
-    if (info.marque.isNotEmpty) v.marque = info.marque;
+    if (info.marque.isNotEmpty && v.marque.isEmpty) v.marque = info.marque;
     if (info.chassis.isNotEmpty) v.chassisNumber = info.chassis;
     if (info.annee != null) v.year = info.annee;
     if (info.puissanceFiscale.isNotEmpty) {
       v.puissanceFiscale = info.puissanceFiscale;
     }
-    if (info.immatriculation.isNotEmpty) v.immatriculation = info.immatriculation;
+    if (info.immatriculation.isNotEmpty && v.immatriculation.isEmpty) {
+      v.immatriculation = info.immatriculation;
+    }
     if (info.engineCode.isNotEmpty) v.engineCode = info.engineCode;
     if (info.fuelType.isNotEmpty) v.fuelType = info.fuelType;
-    // Met aussi à jour le nom affiché si on a maintenant une marque fiable
-    if (info.marque.isNotEmpty) {
-      final nom = [info.marque, info.modele]
-          .where((s) => s.trim().isNotEmpty)
-          .join(' ')
-          .trim();
-      if (nom.isNotEmpty) v.nom = nom;
-    }
     await VehiculeService.update(v);
   }
 

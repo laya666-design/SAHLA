@@ -362,6 +362,25 @@ class _StoreCard extends StatelessWidget {
                 );
               },
             ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              title: const Text('Supprimer le magasin',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirm(
+                  context,
+                  title: 'Supprimer le magasin',
+                  body:
+                      'Supprime définitivement la fiche de "${store.nom.isEmpty ? '(sans nom)' : store.nom}" '
+                      '(abonnement, historique de paiements). Le magasin ne '
+                      'pourra plus accéder à son espace tant qu\'il n\'aura '
+                      'pas recréé un profil. Action irréversible.',
+                  action: () => AdminService.deleteStore(store.uid),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -449,6 +468,67 @@ class _RequestsTabState extends State<_RequestsTab> {
 
   AppConfig get config => widget.config;
 
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _selectionMode = !_selectionMode;
+      if (!_selectionMode) _selected.clear();
+    });
+  }
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selected.contains(id)) {
+        _selected.remove(id);
+      } else {
+        _selected.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final count = _selected.length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer les demandes'),
+        content: Text(
+          'Supprimer définitivement $count demande${count > 1 ? 's' : ''} '
+          'sélectionnée${count > 1 ? 's' : ''} ? Action irréversible.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Supprimer')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await AdminService.deleteRequests(_selected.toList());
+      if (mounted) {
+        setState(() {
+          _selected.clear();
+          _selectionMode = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$count demande${count > 1 ? 's' : ''} supprimée${count > 1 ? 's' : ''}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<PartRequest>>(
@@ -467,61 +547,137 @@ class _RequestsTabState extends State<_RequestsTab> {
         if (list.isEmpty) {
           return const Center(child: Text('Aucune demande.'));
         }
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: list.length,
-          itemBuilder: (context, i) {
-            final r = list[i];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: r.photoUrl.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.network(
-                          r.photoUrl,
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const Icon(Icons.image_not_supported),
-                        ),
-                      )
-                    : const Icon(Icons.build),
-                title: Text(r.pieceNom,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(
-                  '${r.statut} · ${r.reference}\n'
-                  'Client ${r.clientId.length > 8 ? r.clientId.substring(0, 8) : r.clientId}…',
-                ),
-                isThreeLine: true,
-                trailing: PopupMenuButton<String>(
-                  onSelected: (v) async {
-                    try {
-                      if (v == 'close') {
-                        await AdminService.closeRequest(r.id);
-                      } else if (v == 'delete') {
-                        await AdminService.deleteRequest(r.id);
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Erreur : $e')),
-                        );
-                      }
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    if (r.statut == 'open')
-                      const PopupMenuItem(
-                          value: 'close', child: Text('Clôturer')),
-                    const PopupMenuItem(
-                        value: 'delete', child: Text('Supprimer')),
+        return Column(
+          children: [
+            Material(
+              color: _selectionMode
+                  ? config.primaryColor.withOpacity(0.08)
+                  : Colors.transparent,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 6),
+                child: Row(
+                  children: [
+                    if (_selectionMode) ...[
+                      Text(
+                        '${_selected.length} sélectionnée${_selected.length > 1 ? 's' : ''}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: 'Tout sélectionner',
+                        icon: const Icon(Icons.select_all),
+                        onPressed: () => setState(() {
+                          _selected
+                            ..clear()
+                            ..addAll(list.map((r) => r.id));
+                        }),
+                      ),
+                      IconButton(
+                        tooltip: 'Supprimer la sélection',
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed:
+                            _selected.isEmpty ? null : _deleteSelected,
+                      ),
+                      IconButton(
+                        tooltip: 'Annuler',
+                        icon: const Icon(Icons.close),
+                        onPressed: _toggleSelectionMode,
+                      ),
+                    ] else ...[
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: _toggleSelectionMode,
+                        icon: const Icon(Icons.checklist),
+                        label: const Text('Sélectionner'),
+                      ),
+                    ],
                   ],
                 ),
               ),
-            );
-          },
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                itemCount: list.length,
+                itemBuilder: (context, i) {
+                  final r = list[i];
+                  final selected = _selected.contains(r.id);
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    color: selected
+                        ? config.primaryColor.withOpacity(0.08)
+                        : null,
+                    child: ListTile(
+                      onTap: _selectionMode
+                          ? () => _toggleSelected(r.id)
+                          : null,
+                      onLongPress: () {
+                        if (!_selectionMode) {
+                          setState(() => _selectionMode = true);
+                        }
+                        _toggleSelected(r.id);
+                      },
+                      leading: _selectionMode
+                          ? Checkbox(
+                              value: selected,
+                              onChanged: (_) => _toggleSelected(r.id),
+                            )
+                          : (r.photoUrl.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.network(
+                                    r.photoUrl,
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.image_not_supported),
+                                  ),
+                                )
+                              : const Icon(Icons.build)),
+                      title: Text(r.pieceNom,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        '${r.statut} · ${r.reference}\n'
+                        'Client ${r.clientId.length > 8 ? r.clientId.substring(0, 8) : r.clientId}…',
+                      ),
+                      isThreeLine: true,
+                      trailing: _selectionMode
+                          ? null
+                          : PopupMenuButton<String>(
+                              onSelected: (v) async {
+                                try {
+                                  if (v == 'close') {
+                                    await AdminService.closeRequest(r.id);
+                                  } else if (v == 'delete') {
+                                    await AdminService.deleteRequest(r.id);
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      SnackBar(content: Text('Erreur : $e')),
+                                    );
+                                  }
+                                }
+                              },
+                              itemBuilder: (_) => [
+                                if (r.statut == 'open')
+                                  const PopupMenuItem(
+                                      value: 'close',
+                                      child: Text('Clôturer')),
+                                const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Supprimer')),
+                              ],
+                            ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );

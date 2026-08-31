@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/admin_service.dart';
 import 'admin_dashboard_screen.dart';
+import 'admin_forgot_password_screen.dart';
 
 /// Écran de connexion admin — accessible uniquement via l'appui long
 /// caché sur "À propos" dans l'onglet Profil (pas de bouton visible pour
@@ -84,7 +85,24 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 const SizedBox(height: 8),
                 Text(_error!, style: const TextStyle(color: Colors.red)),
               ],
-              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _loading
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AdminForgotPasswordScreen(
+                                config: widget.config,
+                                initialEmail: _emailController.text.trim(),
+                              ),
+                            ),
+                          ),
+                  child: const Text('Mot de passe oublié ?'),
+                ),
+              ),
+              const SizedBox(height: 4),
               FilledButton(
                 onPressed: _loading ? null : _login,
                 style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),

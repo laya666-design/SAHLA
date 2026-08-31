@@ -30,6 +30,10 @@ class AdminService {
 
   static Future<void> signOut() => FirebaseAuth.instance.signOut();
 
+  static Future<void> sendPasswordResetEmail(String email) async {
+    await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+  }
+
   // --- Magasins ----------------------------------------------------------
 
   static Stream<List<StoreProfile>> watchStores() {
@@ -48,6 +52,24 @@ class AdminService {
     required bool actif,
   }) async {
     await _db.collection('stores').doc(storeId).update({'actif': actif});
+  }
+
+  /// Supprime la fiche magasin de Firestore (magasins, plus ses
+  /// sous-collections payment_requests). Ne supprime PAS le compte
+  /// Firebase Auth associé (nécessite Admin SDK/Cloud Function) : le
+  /// magasin ne pourra donc plus se connecter à un espace actif, mais le
+  /// compte d'authentification lui-même reste et pourrait recréer une
+  /// fiche magasin en se reconnectant. Suffisant pour retirer un
+  /// magasin de test ou un magasin fermé de la liste.
+  static Future<void> deleteStore(String storeId) async {
+    final ref = _db.collection('stores').doc(storeId);
+    final payments = await ref.collection('payment_requests').get();
+    final batch = _db.batch();
+    for (final p in payments.docs) {
+      batch.delete(p.reference);
+    }
+    batch.delete(ref);
+    await batch.commit();
   }
 
   static Future<void> activerAbonnement({
@@ -217,5 +239,17 @@ class AdminService {
 
   static Future<void> deleteRequest(String requestId) async {
     await _db.collection('part_requests').doc(requestId).delete();
+  }
+
+  /// Supprime plusieurs demandes en une fois (sélection multiple côté
+  /// admin). Utilise un batch Firestore (max 500 par batch, largement
+  /// suffisant ici) plutôt qu'une boucle d'appels individuels.
+  static Future<void> deleteRequests(List<String> requestIds) async {
+    if (requestIds.isEmpty) return;
+    final batch = _db.batch();
+    for (final id in requestIds) {
+      batch.delete(_db.collection('part_requests').doc(id));
+    }
+    await batch.commit();
   }
 }

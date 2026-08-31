@@ -6,10 +6,7 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.admin == true;
     }
 
-    // Numéro de téléphone dérivé de l'email technique Firebase Auth
-    // "0556653220@elbouni.local" (voir StoreService.currentStoreDocId côté
-    // app). Retourne null si l'utilisateur connecté n'a pas ce type
-    // d'email (comptes Google / email classique créés avant ce système).
+    // Numéro magasin : email technique "0556653220@elbouni.local"
     function numeroDepuisEmailTechnique() {
       return (request.auth != null
               && 'email' in request.auth.token
@@ -19,15 +16,37 @@ service cloud.firestore {
         : null;
     }
 
-    // Un magasin est propriétaire de storeId si :
-    // - son UID Firebase Auth est directement storeId (anciens comptes
-    //   Google / email, créés avec l'UID comme clé de document), ou
-    // - storeId est son numéro de téléphone, dérivé de son email
-    //   technique (nouveaux comptes téléphone + mot de passe).
+    // Numéro acheteur : email technique "0556653220@vroumclient.local"
+    function numeroClientDepuisEmail() {
+      return (request.auth != null
+              && 'email' in request.auth.token
+              && request.auth.token.email.split('@').size() == 2
+              && request.auth.token.email.split('@')[1] == 'vroumclient.local')
+        ? request.auth.token.email.split('@')[0]
+        : null;
+    }
+
     function isOwner(storeId) {
       return request.auth != null
         && (request.auth.uid == storeId
             || numeroDepuisEmailTechnique() == storeId);
+    }
+
+    // Propriétaire d'une demande = clientId = uid Firebase OU numéro téléphone
+    function isRequestOwner() {
+      return request.auth != null
+        && (resource.data.clientId == request.auth.uid
+            || resource.data.clientId == numeroClientDepuisEmail()
+            || resource.data.clientId == numeroDepuisEmailTechnique());
+    }
+
+    // Même logique via get() pour la sous-collection offers
+    function isParentRequestOwner(requestId) {
+      let parent = get(/databases/$(database)/documents/part_requests/$(requestId)).data;
+      return request.auth != null
+        && (parent.clientId == request.auth.uid
+            || parent.clientId == numeroClientDepuisEmail()
+            || parent.clientId == numeroDepuisEmailTechnique());
     }
 
     // Demandes de pièces
@@ -39,15 +58,17 @@ service cloud.firestore {
                           .affectedKeys()
                           .hasOnly(['statut', 'soldToStoreId', 'soldToStoreNom', 'dateVente'])
                         && request.resource.data.statut in ['closed', 'vendu']);
-      allow delete: if isAdmin();
+      // Admin OU le créateur de la demande
+      allow delete: if isAdmin() || isRequestOwner();
 
       match /offers/{offerId} {
         allow read: if true;
-        // offerId est l'ID du document magasin (stores/{offerId}), voir
-        // respondToRequest() : un seul prix par magasin, ré-écrasable.
         allow create, update: if isAdmin()
                               || (isOwner(offerId) && subscriptionValide(offerId));
-        allow delete: if isAdmin();
+        // Admin, le magasin propriétaire de l'offre, ou l'acheteur qui supprime sa demande
+        allow delete: if isAdmin()
+                      || isOwner(offerId)
+                      || isParentRequestOwner(requestId);
       }
     }
 
@@ -56,9 +77,7 @@ service cloud.firestore {
       allow create: if isOwner(storeId)
                       && request.resource.data.actif == false
                       && request.resource.data.subscriptionStatus == 'essai';
-      // Admin lit tout ; le magasin ne lit que le sien
       allow read: if isAdmin() || isOwner(storeId);
-      // Admin peut tout modifier (activation, abo, blocage)
       allow update: if isAdmin()
                     || (isOwner(storeId)
                         && request.resource.data.actif == resource.data.actif
@@ -77,7 +96,6 @@ service cloud.firestore {
                         && request.resource.data.storeId == storeId
                         && request.resource.data.statut == 'en_attente';
         allow read: if isAdmin() || isOwner(storeId);
-        // Admin valide / refuse les preuves de paiement
         allow update: if isAdmin();
         allow delete: if isAdmin();
       }

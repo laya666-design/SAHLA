@@ -18,9 +18,14 @@ class AdminLoginScreen extends StatefulWidget {
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
   String? _error;
+
+  /// true = connexion par téléphone (secours si l'email est bloqué),
+  /// false = connexion par email (méthode principale).
+  bool _viaTelephone = false;
 
   Future<void> _login() async {
     setState(() {
@@ -28,10 +33,17 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       _error = null;
     });
     try {
-      await AdminService.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      if (_viaTelephone) {
+        await AdminService.signInWithPhone(
+          telephone: _phoneController.text.trim(),
+          password: _passwordController.text,
+        );
+      } else {
+        await AdminService.signIn(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      }
       // force: true car le token qui vient d'être émis à la connexion
       // ne contient pas encore le claim admin s'il a été posé après.
       final isAdmin = await AdminService.isCurrentUserAdmin(force: true);
@@ -69,11 +81,49 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
             children: [
               const Icon(Icons.admin_panel_settings, size: 56),
               const SizedBox(height: 24),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email admin'),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(
+                    value: false,
+                    label: Text('Email'),
+                    icon: Icon(Icons.email_outlined),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    label: Text('Téléphone'),
+                    icon: Icon(Icons.phone_outlined),
+                  ),
+                ],
+                selected: {_viaTelephone},
+                onSelectionChanged: _loading
+                    ? null
+                    : (s) => setState(() {
+                          _viaTelephone = s.first;
+                          _error = null;
+                        }),
               ),
+              const SizedBox(height: 16),
+              if (_viaTelephone) ...[
+                TextField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Téléphone admin',
+                    hintText: '0556 65 32 20',
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'À utiliser si l\'email est bloqué ou inaccessible. Le '
+                  'numéro doit avoir été associé au compte au préalable.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ] else
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email admin'),
+                ),
               const SizedBox(height: 12),
               TextField(
                 controller: _passwordController,
@@ -85,23 +135,24 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 const SizedBox(height: 8),
                 Text(_error!, style: const TextStyle(color: Colors.red)),
               ],
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _loading
-                      ? null
-                      : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => AdminForgotPasswordScreen(
-                                config: widget.config,
-                                initialEmail: _emailController.text.trim(),
+              if (!_viaTelephone)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _loading
+                        ? null
+                        : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AdminForgotPasswordScreen(
+                                  config: widget.config,
+                                  initialEmail: _emailController.text.trim(),
+                                ),
                               ),
                             ),
-                          ),
-                  child: const Text('Mot de passe oublié ?'),
+                    child: const Text('Mot de passe oublié ?'),
+                  ),
                 ),
-              ),
               const SizedBox(height: 4),
               FilledButton(
                 onPressed: _loading ? null : _login,

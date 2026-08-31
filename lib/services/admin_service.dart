@@ -21,6 +21,63 @@ class AdminService {
     );
   }
 
+  /// Connexion admin par téléphone — secours si l'email est bloqué ou
+  /// oublié. Le numéro doit avoir été lié au compte au préalable via
+  /// functions/linkAdminPhone.js (jamais depuis l'app). La fonction
+  /// `getAdminEmailByPhone` retrouve l'email réel du compte associé, puis
+  /// on se connecte normalement avec ce mail + le mot de passe fourni.
+  static Future<void> signInWithPhone({
+    required String telephone,
+    required String password,
+  }) async {
+    final numero = normaliserNumeroLocal(telephone);
+    if (numero == null) {
+      throw Exception('Numéro invalide. Utilise le format 0556 65 32 20.');
+    }
+    String email;
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('getAdminEmailByPhone');
+      final result = await callable.call({'telephone': numero});
+      email = result.data?['email'] as String? ?? '';
+      if (email.isEmpty) throw Exception('Aucun compte admin pour ce numéro.');
+    } on FirebaseFunctionsException catch (e) {
+      throw Exception(e.message ?? 'Aucun compte admin pour ce numéro.');
+    }
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+  }
+
+  /// Normalise une saisie de numéro algérien vers le format local à 10
+  /// chiffres commençant par 0 (même logique que StoreService).
+  static String? normaliserNumeroLocal(String saisie) {
+    const eastern = '٠١٢٣٤٥٦٧٨٩';
+    const western = '0123456789';
+    var s = saisie.trim();
+    for (var i = 0; i < 10; i++) {
+      s = s.replaceAll(eastern[i], western[i]);
+    }
+    var chiffres = s.replaceAll(RegExp(r'[^0-9+]'), '');
+
+    if (chiffres.startsWith('+213') && chiffres.length == 13) {
+      chiffres = '0${chiffres.substring(4)}';
+    } else if (chiffres.startsWith('213') && chiffres.length == 12) {
+      chiffres = '0${chiffres.substring(3)}';
+    } else if (chiffres.length == 9 &&
+        (chiffres.startsWith('5') ||
+            chiffres.startsWith('6') ||
+            chiffres.startsWith('7'))) {
+      chiffres = '0$chiffres';
+    }
+
+    if (chiffres.startsWith('0') && chiffres.length == 10) {
+      return chiffres;
+    }
+    return null;
+  }
+
   static Future<bool> isCurrentUserAdmin({bool force = false}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return false;

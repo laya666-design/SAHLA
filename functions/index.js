@@ -357,6 +357,57 @@ exports.attacherEmailRecuperationTelephone = functions.https.onCall(
   }
 );
 
+/**
+ * Connexion admin par téléphone (secours si l'email est bloqué / oublié).
+ *
+ * Le lien numéro -> compte admin est créé UNE FOIS à l'avance, à la main,
+ * via le script functions/linkAdminPhone.js (jamais depuis l'app) : il
+ * écrit un doc `admin_phones/{numero}` = { uid }. Cette fonction est le
+ * seul moyen de lire ce doc (les règles Firestore ne l'exposent à aucun
+ * client) : elle vérifie que le compte a bien le claim admin, puis
+ * renvoie son email actuel pour que le client fasse ensuite un
+ * signInWithEmailAndPassword classique.
+ */
+exports.getAdminEmailByPhone = functions.https.onCall(async (data) => {
+  const numero = (data.telephone || '').toString().replace(/[^0-9]/g, '');
+  if (numero.length !== 10 || !numero.startsWith('0')) {
+    throw new functions.https.HttpsError('invalid-argument', 'Numéro invalide.');
+  }
+
+  const db = admin.firestore();
+  const lienDoc = await db.collection('admin_phones').doc(numero).get();
+  if (!lienDoc.exists || !lienDoc.data().uid) {
+    throw new functions.https.HttpsError(
+      'not-found',
+      'Aucun compte admin associé à ce numéro.'
+    );
+  }
+
+  const uid = lienDoc.data().uid;
+  let userRecord;
+  try {
+    userRecord = await admin.auth().getUser(uid);
+  } catch (e) {
+    throw new functions.https.HttpsError('not-found', 'Compte admin introuvable.');
+  }
+
+  const claims = userRecord.customClaims || {};
+  if (claims.admin !== true) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Ce compte n\'a pas les droits admin.'
+    );
+  }
+  if (!userRecord.email) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Ce compte admin n\'a pas d\'email associé.'
+    );
+  }
+
+  return { email: userRecord.email };
+});
+
 function db_ref(storeId, paymentId) {
   return admin
     .firestore()

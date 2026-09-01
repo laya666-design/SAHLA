@@ -90,27 +90,40 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: widget.config.primaryColor,
               foregroundColor: Colors.black,
               toolbarHeight: 96,
-              centerTitle: true,
               titleSpacing: 0,
-              title: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+              flexibleSpace: ClipRect(
                 child: Image.asset(
                   'assets/images/logo_header.png',
-                  height: 84,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stack) => Text(
-                    widget.config.appName,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (context, error, stack) => Container(
+                    color: widget.config.primaryColor,
+                    alignment: Alignment.center,
+                    child: Text(widget.config.appName,
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
                   ),
                 ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => widget.isAr.value = !isAr,
-                  child: Text(
-                    isAr ? 'FR' : 'AR',
-                    style: const TextStyle(
-                        color: Colors.black, fontWeight: FontWeight.bold),
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, right: 12),
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(20),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => widget.isAr.value = !isAr,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        child: Text(
+                          isAr ? 'FR' : 'AR',
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],

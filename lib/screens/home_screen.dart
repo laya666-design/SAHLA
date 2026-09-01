@@ -92,41 +92,48 @@ class _HomeScreenState extends State<HomeScreen> {
               toolbarHeight: 96,
               titleSpacing: 0,
               flexibleSpace: ClipRect(
-                child: Image.asset(
-                  'assets/images/logo_header.png',
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                  errorBuilder: (context, error, stack) => Container(
-                    color: widget.config.primaryColor,
-                    alignment: Alignment.center,
-                    child: Text(widget.config.appName,
-                        style: const TextStyle(fontWeight: FontWeight.w800)),
-                  ),
-                ),
-              ),
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 12, right: 12),
-                  child: Material(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(20),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => widget.isAr.value = !isAr,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        child: Text(
-                          isAr ? 'FR' : 'AR',
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      'assets/images/logo_header.png',
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (context, error, stack) => Container(
+                        color: widget.config.primaryColor,
+                        alignment: Alignment.center,
+                        child: Text(widget.config.appName,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w800)),
+                      ),
+                    ),
+                    Positioned(
+                      top: 12,
+                      right: isAr ? null : 12,
+                      left: isAr ? 12 : null,
+                      child: Material(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(20),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => widget.isAr.value = !isAr,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            child: Text(
+                              isAr ? 'FR' : 'AR',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
             body: IndexedStack(index: safeIndex, children: screens),
             bottomNavigationBar: NavigationBar(

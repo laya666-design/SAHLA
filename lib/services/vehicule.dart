@@ -69,11 +69,18 @@ class Vehicule extends HiveObject {
     DateTime? dateAjout,
   }) : dateAjout = dateAjout ?? DateTime.now();
 
-  /// Résumé moteur/carburant tel qu'affiché dans l'app et injecté dans le
-  /// prompt du scanner pièces (ex: "Clio 4 · K9K · diesel").
+  /// Résumé véhicule injecté dans le prompt du scanner pièces (ex:
+  /// "Renault Clio 4 · K9K · diesel"). Inclut le nom du véhicule (modèle
+  /// exact, ex: "Clio 4") en plus de la marque : sans le modèle, Gemini
+  /// ne peut que deviner une liste de compatibilité générique à partir
+  /// de la seule photo, au lieu de l'ancrer sur le véhicule réel de
+  /// l'utilisateur.
   String get resumeMoteur {
     final parts = <String>[
-      if (marque.trim().isNotEmpty) marque.trim(),
+      if (nom.trim().isNotEmpty)
+        nom.trim()
+      else if (marque.trim().isNotEmpty)
+        marque.trim(),
       if (engineCode.trim().isNotEmpty) engineCode.trim(),
       if (fuelType.trim().isNotEmpty) fuelType.trim(),
     ];

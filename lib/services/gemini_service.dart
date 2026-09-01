@@ -250,8 +250,12 @@ Retourne UNIQUEMENT ce JSON (aucun texte avant/apres, pas de markdown):
           : '''
 Contexte vehicule connu (issu de la carte grise scannee par l utilisateur,
 fiable, ne pas ignorer) : $vehicleContext
-Utilise ce contexte pour affiner la reference exacte et la compatibilite,
-plutot que de deviner uniquement a partir de la photo.
+Ce vehicule EXACT doit apparaitre en PREMIER dans "compatibilite", avec son
+nom complet tel que donne ci-dessus (ex: si le contexte est "Renault Clio 4",
+la liste doit commencer par "Renault Clio 4", jamais un autre modele a la
+place). N ajoute d autres modeles compatibles qu apres celui-ci, et
+seulement s ils partagent vraiment la meme piece (meme plateforme/moteur) —
+n invente pas une liste generique de modeles de la meme marque.
 ''';
 
       final prompt = '''

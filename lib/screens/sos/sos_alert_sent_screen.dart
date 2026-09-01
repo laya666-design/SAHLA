@@ -95,15 +95,18 @@ class SosAlertSentScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     if ((alerte?.acceptedByDepanneuseTel ?? '').isNotEmpty)
-                      SizedBox(
-                        height: 52,
-                        child: FilledButton.icon(
-                          onPressed: () => _appeler(alerte!.acceptedByDepanneuseTel!),
-                          style: FilledButton.styleFrom(backgroundColor: config.primaryColor),
-                          icon: const Icon(Icons.call),
-                          label: Text('Appeler ${alerte.acceptedByDepanneuseTel}'),
-                        ),
-                      ),
+                      Builder(builder: (context) {
+                        final tel = alerte!.acceptedByDepanneuseTel!;
+                        return SizedBox(
+                          height: 52,
+                          child: FilledButton.icon(
+                            onPressed: () => _appeler(tel),
+                            style: FilledButton.styleFrom(backgroundColor: config.primaryColor),
+                            icon: const Icon(Icons.call),
+                            label: Text('Appeler $tel'),
+                          ),
+                        );
+                      }),
                   ],
                 ],
               ),

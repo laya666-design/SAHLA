@@ -89,8 +89,18 @@ class _HomeScreenState extends State<HomeScreen> {
             appBar: AppBar(
               backgroundColor: widget.config.primaryColor,
               foregroundColor: Colors.black,
-              title: Text(widget.config.appName,
-                  style: const TextStyle(fontWeight: FontWeight.w800)),
+              title: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/images/logo_header.png',
+                  height: 40,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stack) => Text(
+                    widget.config.appName,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
               actions: [
                 TextButton(
                   onPressed: () => widget.isAr.value = !isAr,

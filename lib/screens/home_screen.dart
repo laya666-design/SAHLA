@@ -89,12 +89,15 @@ class _HomeScreenState extends State<HomeScreen> {
             appBar: AppBar(
               backgroundColor: widget.config.primaryColor,
               foregroundColor: Colors.black,
+              toolbarHeight: 96,
+              centerTitle: true,
+              titleSpacing: 0,
               title: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Image.asset(
                   'assets/images/logo_header.png',
-                  height: 40,
-                  fit: BoxFit.cover,
+                  height: 84,
+                  fit: BoxFit.contain,
                   errorBuilder: (context, error, stack) => Text(
                     widget.config.appName,
                     style: const TextStyle(fontWeight: FontWeight.w800),

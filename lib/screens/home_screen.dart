@@ -108,10 +108,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                     ),
-                    // Bouton langue fixé à gauche (position cercle rouge) :
-                    // bascule uniquement le label AR/FR, sans déplacement.
+                    // Bouton langue fixé à gauche, plus bas (position cercle rouge)
+                    // : bascule uniquement le label AR/FR, sans déplacement.
                     Positioned(
-                      top: 12,
+                      top: 40,
                       left: 12,
                       child: Material(
                         color: Colors.white,

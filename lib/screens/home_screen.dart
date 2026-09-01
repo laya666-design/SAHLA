@@ -108,10 +108,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                     ),
-                    // Bouton langue fixé en bas à gauche du bandeau (cercle rouge)
+                    // Bouton langue fixé tout en bas à gauche du bandeau (cercle rouge)
                     // : bascule uniquement le label AR/FR, sans déplacement.
                     Positioned(
-                      bottom: 12,
+                      bottom: 4,
                       left: 12,
                       child: Material(
                         color: Colors.white,

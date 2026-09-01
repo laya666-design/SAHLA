@@ -35,6 +35,43 @@ void main() async {
   runApp(const AjalakApp());
 }
 
+/// Vide les SnackBars affichés à chaque changement d'écran.
+/// Sans ça, un SnackBar (ex: "Demande envoyée aux magasins.") reste visible
+/// et suit l'utilisateur sur les écrans suivants tant que son délai n'est
+/// pas écoulé, car un seul ScaffoldMessenger est partagé par toute l'app.
+class _ClearSnackBarsOnNavigate extends NavigatorObserver {
+  void _clear() {
+    final context = navigator?.context;
+    if (context != null) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+    }
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    _clear();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    _clear();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didRemove(route, previousRoute);
+    _clear();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    _clear();
+  }
+}
+
 class AjalakApp extends StatefulWidget {
   const AjalakApp({super.key});
   @override
@@ -44,6 +81,7 @@ class AjalakApp extends StatefulWidget {
 class _AjalakAppState extends State<AjalakApp> {
   final ValueNotifier<bool> isAr = ValueNotifier(false);
   late bool _profileChosen = SettingsService.hasChosenVehicleProfile;
+  final _navigatorObserver = _ClearSnackBarsOnNavigate();
 
   Future<void> _chooseProfile(String value) async {
     await SettingsService.setVehicleProfile(value);
@@ -59,6 +97,7 @@ class _AjalakAppState extends State<AjalakApp> {
         return MaterialApp(
           title: config.appName,
           debugShowCheckedModeBanner: false,
+          navigatorObservers: [_navigatorObserver],
           // Bug corrigé : la locale n'était jamais transmise au MaterialApp,
           // donc seuls les libellés traduits à la main changeaient, pas les
           // widgets système (dates, etc.) ni la direction par défaut.

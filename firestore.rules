@@ -24,8 +24,23 @@ service cloud.firestore {
         : null;
     }
 
+    function numeroDepanneuseDepuisEmail() {
+      return (request.auth!= null
+              && 'email' in request.auth.token
+              && request.auth.token.email.split('@').size() == 2
+              && request.auth.token.email.split('@')[1] == 'vroumdep.local')
+        ? request.auth.token.email.split('@')[0]
+        : null;
+    }
+
     function currentUserIds() {
       return [request.auth.uid, numeroDepuisEmailTechnique(), numeroClientDepuisEmail()];
+    }
+
+    function isDepanneuseOwner(depanneuseId) {
+      return request.auth!= null
+        && (request.auth.uid == depanneuseId
+            || numeroDepanneuseDepuisEmail() == depanneuseId);
     }
 
     function isOwner(storeId) {
@@ -94,6 +109,39 @@ service cloud.firestore {
         allow read: if isAdmin() || isOwner(storeId);
         allow update, delete: if isAdmin();
       }
+    }
+
+    // Alertes SOS (bouton panne)
+    match /sos_alerts/{alertId} {
+      allow read: if true;
+      allow create: if request.auth!= null
+                    && request.resource.data.statut == 'ouverte'
+                    && request.resource.data.clientId in currentUserIds();
+      // Une dépanneuse active peut accepter une alerte ouverte : elle ne
+      // peut modifier que les champs d'acceptation, jamais en écraser une
+      // déjà acceptée par une autre dépanneuse. L'auteur de l'alerte peut
+      // seulement l'annuler.
+      allow update: if isAdmin()
+                    || (isRequestOwnerData(resource.data)
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut'])
+                        && request.resource.data.statut == 'annulee')
+                    || (request.auth!= null
+                        && resource.data.statut == 'ouverte'
+                        && request.resource.data.statut == 'acceptee'
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['statut', 'acceptedByDepanneuseId', 'acceptedByDepanneuseNom', 'acceptedByDepanneuseTel', 'dateAcceptation']));
+      allow delete: if isAdmin();
+    }
+
+    // Comptes dépanneuses (accès caché, même mécanisme que les magasins)
+    match /depanneuses/{depanneuseId} {
+      allow create: if isDepanneuseOwner(depanneuseId)
+                      && request.resource.data.actif == false;
+      allow read: if isAdmin() || isDepanneuseOwner(depanneuseId);
+      allow update: if isAdmin()
+                    || (isDepanneuseOwner(depanneuseId)
+                        && request.resource.data.actif == resource.data.actif);
+      allow delete: if isAdmin();
     }
   }
 }

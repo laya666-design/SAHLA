@@ -105,4 +105,16 @@ class SettingsService {
   static Future<void> setVehicleProfile(String value) async {
     await _box.put(_vehicleProfileKey, value);
   }
+
+  // --- Wilaya de l'utilisateur ---
+  // Demandée une seule fois (au premier envoi d'une alerte SOS), pour
+  // savoir à quelles dépanneuses diffuser — voir sos_service.dart.
+  // Modifiable ensuite depuis l'onglet Profil.
+  static const String _wilayaKey = 'wilaya';
+
+  static String? get wilaya => _box.get(_wilayaKey) as String?;
+
+  static Future<void> setWilaya(String value) async {
+    await _box.put(_wilayaKey, value);
+  }
 }

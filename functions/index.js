@@ -81,6 +81,54 @@ exports.notifyStoresOnNewRequest = functions.firestore
   });
 
 /**
+ * Notifie les dépanneuses actives de la wilaya concernée dès qu'une
+ * nouvelle alerte SOS est créée (même principe que
+ * notifyStoresOnNewRequest, filtré par wilaya au lieu de tout diffuser).
+ */
+exports.notifyDepanneusesOnNewSos = functions.firestore
+  .document('sos_alerts/{alertId}')
+  .onCreate(async (snap) => {
+    const alertData = snap.data();
+    if (!alertData.wilaya) {
+      console.log('Alerte SOS sans wilaya — rien à notifier.');
+      return null;
+    }
+
+    const depanneusesSnap = await admin
+      .firestore()
+      .collection('depanneuses')
+      .where('actif', '==', true)
+      .where('wilaya', '==', alertData.wilaya)
+      .get();
+
+    const tokens = depanneusesSnap.docs
+      .map((doc) => doc.data().fcmToken)
+      .filter((t) => !!t);
+
+    if (tokens.length === 0) {
+      console.log(`Aucune dépanneuse active à notifier dans la wilaya ${alertData.wilaya}.`);
+      return null;
+    }
+
+    const message = {
+      notification: {
+        title: 'Alerte panne',
+        body: `Un automobiliste en panne a besoin d'aide (wilaya de ${alertData.wilaya}).`,
+      },
+      data: {
+        alertId: snap.id,
+      },
+      tokens,
+    };
+
+    const response = await admin.messaging().sendEachForMulticast(message);
+    console.log(
+      `Alertes SOS envoyées : ${response.successCount} succès, ${response.failureCount} échecs.`
+    );
+    return response;
+  });
+
+/**
  * Fait passer automatiquement à "expire" tout magasin dont l'essai
  * gratuit ou l'abonnement payé est terminé. Tourne une fois par jour.
  *

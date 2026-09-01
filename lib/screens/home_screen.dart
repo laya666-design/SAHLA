@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
+import '../services/sos_service.dart';
 import '../services/vehicule.dart';
 import '../services/vehicule_service.dart';
 import 'parts_portal_screen.dart';
 import 'profile_screen.dart';
+import 'sos/depanneuse_portal_screen.dart';
+import 'sos/sos_alert_sent_screen.dart';
+import 'sos/wilaya_picker_dialog.dart';
 import 'vehicles_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -18,6 +22,79 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
+  bool _sosEnvoiEnCours = false;
+
+  // Appui long sur le bouton SOS : accès caché à l'Espace Dépanneuse
+  // (pas de menu visible — voir sos_service.dart).
+  void _ouvrirEspaceDepanneuse() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DepanneusePortalScreen(config: widget.config),
+      ),
+    );
+  }
+
+  // Appui simple sur le bouton SOS : diffuse une alerte de panne aux
+  // dépanneuses de la wilaya de l'utilisateur, après confirmation (pour
+  // éviter un envoi accidentel).
+  Future<void> _envoyerAlerteSos(bool isAr) async {
+    if (_sosEnvoiEnCours) return;
+
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isAr ? 'نداء استغاثة' : 'Alerte SOS'),
+        content: Text(
+          isAr
+              ? 'إرسال نداء استغاثة إلى سائقي سطحات المساعدة في ولايتك؟'
+              : 'Envoyer une alerte de panne aux dépanneuses de ta wilaya ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(isAr ? 'إلغاء' : 'Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: widget.config.sosColor),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(isAr ? 'إرسال' : 'Envoyer'),
+          ),
+        ],
+      ),
+    );
+    if (confirme != true || !mounted) return;
+
+    var wilaya = SettingsService.wilaya;
+    if (wilaya == null) {
+      wilaya = await showWilayaPickerDialog(context, accentColor: widget.config.sosColor);
+      if (wilaya == null || !mounted) return;
+      await SettingsService.setWilaya(wilaya);
+    }
+
+    setState(() => _sosEnvoiEnCours = true);
+    try {
+      final alertId = await SosService.sendAlert(wilaya: wilaya);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SosAlertSentScreen(
+            config: widget.config,
+            alertId: alertId,
+            wilaya: wilaya!,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _sosEnvoiEnCours = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,6 +215,27 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             body: IndexedStack(index: safeIndex, children: screens),
+            floatingActionButton: GestureDetector(
+              onLongPress: _ouvrirEspaceDepanneuse,
+              child: FloatingActionButton(
+                backgroundColor: widget.config.sosColor,
+                onPressed: _sosEnvoiEnCours ? null : () => _envoyerAlerteSos(isAr),
+                child: _sosEnvoiEnCours
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.5, color: Colors.white),
+                      )
+                    : const Text(
+                        'SOS',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13),
+                      ),
+              ),
+            ),
             bottomNavigationBar: NavigationBar(
               selectedIndex: safeIndex,
               onDestinationSelected: (i) => setState(() => _index = i),

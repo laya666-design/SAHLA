@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'marketplace_models.dart';
+import 'sos_models.dart';
 
 /// Espace admin : magasins, abonnements, paiements, demandes.
 ///
@@ -127,6 +128,25 @@ class AdminService {
     }
     batch.delete(ref);
     await batch.commit();
+  }
+
+  // --- Dépanneuses (bouton SOS) -------------------------------------------
+
+  static Stream<List<DepanneuseProfile>> watchDepanneuses() {
+    return _db.collection('depanneuses').snapshots().map(
+          (s) => s.docs.map(DepanneuseProfile.fromDoc).toList(),
+        );
+  }
+
+  static Future<void> setDepanneuseActif({
+    required String depanneuseId,
+    required bool actif,
+  }) async {
+    await _db.collection('depanneuses').doc(depanneuseId).update({'actif': actif});
+  }
+
+  static Future<void> deleteDepanneuse(String depanneuseId) async {
+    await _db.collection('depanneuses').doc(depanneuseId).delete();
   }
 
   /// Suppression multiple de magasins (batch par magasin).

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../config/app_config.dart';
 import '../../services/admin_service.dart';
 import '../../services/marketplace_models.dart';
+import '../../services/sos_models.dart';
 import 'admin_payments_screen.dart';
 
 /// Tableau de bord admin : magasins, paiements, demandes.
@@ -21,7 +22,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -59,6 +60,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             Tab(text: 'Magasins', icon: Icon(Icons.storefront, size: 18)),
             Tab(text: 'Paiements', icon: Icon(Icons.payment, size: 18)),
             Tab(text: 'Demandes', icon: Icon(Icons.list_alt, size: 18)),
+            Tab(text: 'Dépanneuses', icon: Icon(Icons.local_shipping, size: 18)),
           ],
         ),
       ),
@@ -68,6 +70,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           _StoresTab(config: widget.config),
           AdminPaymentsScreen(config: widget.config, embedded: true),
           _RequestsTab(config: widget.config),
+          _DepanneusesTab(config: widget.config),
         ],
       ),
     );
@@ -815,6 +818,101 @@ class _RequestsTabState extends State<_RequestsTab> {
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dépanneuses (bouton SOS)
+// ---------------------------------------------------------------------------
+
+class _DepanneusesTab extends StatelessWidget {
+  final AppConfig config;
+  const _DepanneusesTab({required this.config});
+
+  Future<void> _confirmerSuppression(
+    BuildContext context,
+    DepanneuseProfile d,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer la dépanneuse'),
+        content: Text('Supprimer définitivement "${d.nom}" ? Action irréversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await AdminService.deleteDepanneuse(d.uid);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<DepanneuseProfile>>(
+      stream: AdminService.watchDepanneuses(),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final depanneuses = List<DepanneuseProfile>.from(snap.data!);
+        depanneuses.sort((a, b) {
+          final c = (a.actif ? 1 : 0).compareTo(b.actif ? 1 : 0);
+          if (c != 0) return c;
+          return a.nom.toLowerCase().compareTo(b.nom.toLowerCase());
+        });
+
+        if (depanneuses.isEmpty) {
+          return const Center(child: Text('Aucun compte dépanneuse inscrit.'));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: depanneuses.length,
+          itemBuilder: (context, i) {
+            final d = depanneuses[i];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: (d.actif ? config.primaryColor : Colors.orange)
+                      .withOpacity(0.12),
+                  child: Icon(Icons.local_shipping,
+                      color: d.actif ? config.primaryColor : Colors.orange),
+                ),
+                title: Text(d.nom.isEmpty ? d.tel : d.nom,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('${d.wilaya} — ${d.tel}'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Switch(
+                      value: d.actif,
+                      activeColor: config.primaryColor,
+                      onChanged: (v) => AdminService.setDepanneuseActif(
+                        depanneuseId: d.uid,
+                        actif: v,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Supprimer',
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      onPressed: () => _confirmerSuppression(context, d),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );

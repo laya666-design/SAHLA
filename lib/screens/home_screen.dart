@@ -108,17 +108,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                     ),
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeInOut,
+                    // Bouton langue fixé à gauche (position cercle rouge) :
+                    // bascule uniquement le label AR/FR, sans déplacement.
+                    Positioned(
                       top: 12,
-                      right: isAr ? null : 12,
-                      left: isAr ? 12 : null,
+                      left: 12,
                       child: Material(
-                        // Fond blanc + bordure : contrairement au noir
-                        // translucide précédent, reste bien visible même
-                        // sur les zones sombres de la vidéo/bandeau, donc
-                        // le déplacement gauche/droite se voit clairement.
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         elevation: 3,

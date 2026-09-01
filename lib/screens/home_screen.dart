@@ -108,13 +108,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                     ),
-                    Positioned(
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
                       top: 12,
                       right: isAr ? null : 12,
                       left: isAr ? 12 : null,
                       child: Material(
-                        color: Colors.black.withValues(alpha: 0.55),
+                        // Fond blanc + bordure : contrairement au noir
+                        // translucide précédent, reste bien visible même
+                        // sur les zones sombres de la vidéo/bandeau, donc
+                        // le déplacement gauche/droite se voit clairement.
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
+                        elevation: 3,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(20),
                           onTap: () => widget.isAr.value = !isAr,
@@ -123,8 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 horizontal: 14, vertical: 8),
                             child: Text(
                               isAr ? 'FR' : 'AR',
-                              style: const TextStyle(
-                                  color: Colors.white,
+                              style: TextStyle(
+                                  color: widget.config.primaryColor,
                                   fontWeight: FontWeight.bold),
                             ),
                           ),

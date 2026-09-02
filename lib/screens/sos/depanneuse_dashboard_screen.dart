@@ -20,6 +20,23 @@ class _DepanneuseDashboardScreenState
   late final Stream<DepanneuseProfile?> _profileStream =
       SosService.myProfileStream();
 
+  // Cache du flux d'alertes par wilaya : sans ça, chaque nouvelle valeur
+  // émise par _profileStream (ex: écriture du fcmToken juste après
+  // l'ouverture de l'écran) recréait un tout nouveau flux Firestore ici,
+  // qui repartait de zéro (même bug que l'onglet Commandes du portail
+  // magasin, corrigé en hoistant le flux au lieu de le recréer à chaque
+  // build).
+  String? _wilayaEnCours;
+  Stream<List<SosAlert>>? _alertesStream;
+
+  Stream<List<SosAlert>> _alertesStreamPour(String wilaya) {
+    if (_wilayaEnCours != wilaya) {
+      _wilayaEnCours = wilaya;
+      _alertesStream = SosService.openAlertsForMyWilaya(wilaya);
+    }
+    return _alertesStream!;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -102,7 +119,7 @@ class _DepanneuseDashboardScreenState
           }
 
           return StreamBuilder<List<SosAlert>>(
-            stream: SosService.openAlertsForMyWilaya(profile.wilaya),
+            stream: _alertesStreamPour(profile.wilaya),
             builder: (context, snap) {
               if (snap.hasError) {
                 return Center(child: Text('Erreur : ${snap.error}'));

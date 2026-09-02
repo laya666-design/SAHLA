@@ -85,8 +85,28 @@ class _DepanneuseDashboardScreenState
       body: StreamBuilder<DepanneuseProfile?>(
         stream: _profileStream,
         builder: (context, profileSnap) {
+          if (profileSnap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Erreur profil : ${profileSnap.error}',
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            );
+          }
           if (!profileSnap.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('Chargement du profil…'),
+                ],
+              ),
+            );
           }
           final profile = profileSnap.data;
           if (profile == null) {
@@ -122,10 +142,27 @@ class _DepanneuseDashboardScreenState
             stream: _alertesStreamPour(profile.wilaya),
             builder: (context, snap) {
               if (snap.hasError) {
-                return Center(child: Text('Erreur : ${snap.error}'));
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'Erreur requête alertes (wilaya="${profile.wilaya}") : ${snap.error}',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                );
               }
               if (!snap.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 12),
+                      Text('Recherche des alertes pour "${profile.wilaya}"…'),
+                    ],
+                  ),
+                );
               }
               final alertes = snap.data!;
               return Column(
@@ -139,10 +176,25 @@ class _DepanneuseDashboardScreenState
                       style: TextStyle(fontWeight: FontWeight.w600, color: sos),
                     ),
                   ),
+                  // Bandeau de debug temporaire : confirme que le flux a bien
+                  // répondu (0 alerte ou plus) — à retirer une fois le bug
+                  // résolu.
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    color: Colors.black87,
+                    child: Text(
+                      'DEBUG: ${alertes.length} alerte(s) trouvée(s) pour wilaya="${profile.wilaya}"',
+                      style: const TextStyle(color: Colors.greenAccent, fontSize: 11),
+                    ),
+                  ),
                   if (alertes.isEmpty)
-                    const Expanded(
+                    Expanded(
                       child: Center(
-                        child: Text('Aucune alerte en attente dans ta wilaya.'),
+                        child: Text(
+                          'Aucune alerte en attente dans ta wilaya.',
+                          style: const TextStyle(color: Colors.black87),
+                        ),
                       ),
                     )
                   else

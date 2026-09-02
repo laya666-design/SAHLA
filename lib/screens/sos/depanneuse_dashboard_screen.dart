@@ -198,34 +198,28 @@ class _DepanneuseDashboardScreenState
                       ),
                     )
                   else
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      color: Colors.black,
+                      child: Text(
+                        'IDs: ${alertes.map((a) => "${a.id.substring(0, a.id.length > 6 ? 6 : a.id.length)}/${a.statut}").join(", ")}',
+                        style: const TextStyle(color: Colors.amber, fontSize: 10),
+                      ),
+                    ),
                     Expanded(
                       child: ListView.builder(
                         padding: const EdgeInsets.all(12),
                         itemCount: alertes.length,
                         itemBuilder: (context, i) {
                           final a = alertes[i];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: sos.withOpacity(0.12),
-                                child: Icon(Icons.sos, color: sos),
-                              ),
-                              title: Text(
-                                'Panne — ${a.wilaya}',
-                                style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                              subtitle: Text(
-                                a.aUnePosition
-                                    ? 'Position GPS disponible\n${a.dateCreation.hour.toString().padLeft(2, '0')}:${a.dateCreation.minute.toString().padLeft(2, '0')}'
-                                    : 'Sans position GPS\n${a.dateCreation.hour.toString().padLeft(2, '0')}:${a.dateCreation.minute.toString().padLeft(2, '0')}',
-                              ),
-                              isThreeLine: true,
-                              trailing: FilledButton(
-                                onPressed: () => _accepter(a),
-                                style: FilledButton.styleFrom(backgroundColor: sos),
-                                child: const Text("J'y vais"),
-                              ),
+                          return Container(
+                            color: Colors.yellow,
+                            margin: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.all(8),
+                            child: Text(
+                              '#$i — id=${a.id} statut=${a.statut} wilaya=${a.wilaya}',
+                              style: const TextStyle(color: Colors.black, fontSize: 12),
                             ),
                           );
                         },

@@ -177,8 +177,7 @@ class _DepanneuseDashboardScreenState
                     ),
                   ),
                   // Bandeau de debug temporaire : confirme que le flux a bien
-                  // répondu (0 alerte ou plus) — à retirer une fois le bug
-                  // résolu.
+                  // répondu (0 alerte ou plus) — à retirer une fois validé.
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -198,28 +197,57 @@ class _DepanneuseDashboardScreenState
                       ),
                     )
                   else
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      color: Colors.black,
-                      child: Text(
-                        'IDs: ${alertes.map((a) => "${a.id.substring(0, a.id.length > 6 ? 6 : a.id.length)}/${a.statut}").join(", ")}',
-                        style: const TextStyle(color: Colors.amber, fontSize: 10),
-                      ),
-                    ),
                     Expanded(
                       child: ListView.builder(
                         padding: const EdgeInsets.all(12),
                         itemCount: alertes.length,
                         itemBuilder: (context, i) {
                           final a = alertes[i];
-                          return Container(
-                            color: Colors.yellow,
-                            margin: const EdgeInsets.only(bottom: 4),
-                            padding: const EdgeInsets.all(8),
-                            child: Text(
-                              '#$i — id=${a.id} statut=${a.statut} wilaya=${a.wilaya}',
-                              style: const TextStyle(color: Colors.black, fontSize: 12),
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: sos.withOpacity(0.12),
+                                    child: Icon(Icons.warning_amber_rounded, color: sos),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Panne — ${a.wilaya}',
+                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          a.aUnePosition
+                                              ? 'Position GPS disponible'
+                                              : 'Sans position GPS',
+                                          style: const TextStyle(color: Colors.black54, fontSize: 13),
+                                        ),
+                                        Text(
+                                          '${a.dateCreation.hour.toString().padLeft(2, '0')}:${a.dateCreation.minute.toString().padLeft(2, '0')}',
+                                          style: const TextStyle(color: Colors.black54, fontSize: 13),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: FilledButton(
+                                            onPressed: () => _accepter(a),
+                                            style: FilledButton.styleFrom(backgroundColor: sos),
+                                            child: const Text("J'y vais"),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         },

@@ -27,6 +27,37 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   /// false = connexion par email (méthode principale).
   bool _viaTelephone = false;
 
+  /// Tant que ceci vaut true, on affiche un loader plutôt que le
+  /// formulaire : le temps de vérifier si une session admin valide
+  /// existe déjà (Firebase Auth garde la session active tout seul
+  /// entre deux ouvertures de l'écran — inutile de redemander l'email
+  /// et le mot de passe si le token porte déjà le claim admin).
+  bool _checkingSession = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingSession();
+  }
+
+  Future<void> _checkExistingSession() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final isAdmin = await AdminService.isCurrentUserAdmin();
+      if (isAdmin) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdminDashboardScreen(config: widget.config),
+          ),
+        );
+        return;
+      }
+    }
+    if (mounted) setState(() => _checkingSession = false);
+  }
+
   Future<void> _login() async {
     setState(() {
       _loading = true;
@@ -70,6 +101,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checkingSession) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Espace Admin')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Espace Admin')),
       body: SafeArea(

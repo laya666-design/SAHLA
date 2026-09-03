@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/marketplace_models.dart';
 import '../services/marketplace_service.dart';
+import '../services/vehicule_service.dart';
 import 'marketplace/buyer_phone_login_screen.dart';
 import 'marketplace/mes_demandes_screen.dart';
 import 'parts_screen.dart';
@@ -22,14 +23,22 @@ class BuyerPortalScreen extends StatefulWidget {
 class _BuyerPortalScreenState extends State<BuyerPortalScreen> {
   bool _ready = false;
 
-  // Compte, en direct, le nombre de réponses de magasins reçues sur les
-  // demandes encore ouvertes — affiché en badge sur l'icône "Mes demandes".
+  // Compte, en direct, le nombre de réponses de magasins jamais consultées
+  // sur les demandes encore ouvertes — affiché en badge sur l'icône
+  // "Mes demandes". _offerIdsByRequest garde les ids (pas juste le total)
+  // pour pouvoir les marquer "vues" quand l'utilisateur ouvre l'écran.
   StreamSubscription<List<PartRequest>>? _requestsSub;
   final Map<String, StreamSubscription<List<PartOffer>>> _offerSubs = {};
-  final Map<String, int> _offerCounts = {};
+  final Map<String, List<String>> _offerIdsByRequest = {};
 
-  int get _totalReponses =>
-      _offerCounts.values.fold(0, (sum, n) => sum + n);
+  int get _totalNonVues {
+    final vues = SettingsService.seenOfferIds;
+    var total = 0;
+    for (final ids in _offerIdsByRequest.values) {
+      total += ids.where((id) => !vues.contains(id)).length;
+    }
+    return total;
+  }
 
   bool get _ar => widget.isAr;
   String _t(String fr, String ar) => _ar ? ar : fr;
@@ -49,7 +58,7 @@ class _BuyerPortalScreenState extends State<BuyerPortalScreen> {
   }
 
   /// Écoute mes demandes ouvertes, puis les réponses de chacune, pour
-  /// maintenir un total de magasins ayant répondu à jour en temps réel.
+  /// maintenir un total de réponses non vues à jour en temps réel.
   void _subscribeReponses() {
     _requestsSub?.cancel();
     _requestsSub = MarketplaceService.myRequests().listen((requests) {
@@ -62,7 +71,7 @@ class _BuyerPortalScreenState extends State<BuyerPortalScreen> {
         if (!ids.contains(id)) {
           _offerSubs[id]?.cancel();
           _offerSubs.remove(id);
-          _offerCounts.remove(id);
+          _offerIdsByRequest.remove(id);
         }
       }
 
@@ -71,13 +80,29 @@ class _BuyerPortalScreenState extends State<BuyerPortalScreen> {
           _offerSubs[r.id] = MarketplaceService.offersFor(r.id).listen(
             (offers) {
               if (!mounted) return;
-              setState(() => _offerCounts[r.id] = offers.length);
+              setState(
+                  () => _offerIdsByRequest[r.id] = offers.map((o) => o.id).toList());
             },
             onError: (_) {},
           );
         }
       }
     }, onError: (_) {});
+  }
+
+  /// Ouvre "Mes demandes" puis, au retour, marque toutes les réponses
+  /// actuellement connues comme vues (le badge repasse à 0 si rien de
+  /// nouveau n'est arrivé entre-temps).
+  Future<void> _openMesDemandes() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => MesDemandesScreen(config: widget.config)),
+    );
+    if (!mounted) return;
+    final toutesLesIds = _offerIdsByRequest.values.expand((e) => e);
+    await SettingsService.markOffersSeen(toutesLesIds);
+    setState(() {});
   }
 
   @override
@@ -114,15 +139,11 @@ class _BuyerPortalScreenState extends State<BuyerPortalScreen> {
           IconButton(
             tooltip: _t('Mes demandes', 'طلباتي'),
             icon: Badge(
-              label: Text('$_totalReponses'),
-              isLabelVisible: _totalReponses > 0,
+              label: Text('$_totalNonVues'),
+              isLabelVisible: _totalNonVues > 0,
               child: const Icon(Icons.list_alt),
             ),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => MesDemandesScreen(config: widget.config)),
-            ),
+            onPressed: _openMesDemandes,
           ),
           if (phoneLoggedIn)
             PopupMenuButton<String>(

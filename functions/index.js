@@ -1,7 +1,33 @@
 const functions = require('firebase-functions');
+const { defineSecret, defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 admin.initializeApp();
+
+// Config Chargily Pay via Secret Manager / variables d'environnement —
+// remplace l'ancienne functions.config() (API "runtime config" coupée
+// par Google, elle ne renvoie plus rien depuis fin 2025/2026, d'où
+// "clé Chargily manquante" même après un ancien
+// `firebase functions:config:set`). Mise en place une fois avant
+// déploiement :
+//   firebase functions:secrets:set CHARGILY_SECRET_KEY
+//   firebase functions:secrets:set CHARGILY_WEBHOOK_SECRET
+// et, dans functions/.env (non secret, committable) :
+//   CHARGILY_MODE=test        # ou "live" une fois prêt à encaisser
+const chargilySecretKey = defineSecret('CHARGILY_SECRET_KEY');
+const chargilyWebhookSecret = defineSecret('CHARGILY_WEBHOOK_SECRET');
+const chargilyMode = defineString('CHARGILY_MODE', { default: 'test' });
+
+function chargilyConfig() {
+  const live = chargilyMode.value() === 'live';
+  return {
+    secretKey: chargilySecretKey.value(),
+    webhookSecret: chargilyWebhookSecret.value(),
+    baseUrl: live
+      ? 'https://pay.chargily.net/api/v2'
+      : 'https://pay.chargily.net/test/api/v2',
+  };
+}
 
 // Forfaits d'abonnement magasin — doivent rester identiques à
 // `kSubscriptionPlans` côté Flutter (lib/services/marketplace_models.dart).
@@ -13,23 +39,6 @@ const PLANS = {
   trimestriel: { nom: 'Trimestriel', dureeJours: 90, prixDA: 5000 },
   annuel: { nom: 'Annuel', dureeJours: 365, prixDA: 18000 },
 };
-
-// Config Chargily Pay (à définir une fois avant déploiement) :
-//   firebase functions:config:set chargily.secret_key="test_sk_xxx" \
-//     chargily.webhook_secret="xxx" chargily.mode="test"
-// Passer chargily.mode à "live" + une clé "live_sk_xxx" une fois prêt à
-// encaisser réellement.
-function chargilyConfig() {
-  const cfg = functions.config().chargily || {};
-  const live = cfg.mode === 'live';
-  return {
-    secretKey: cfg.secret_key,
-    webhookSecret: cfg.webhook_secret,
-    baseUrl: live
-      ? 'https://pay.chargily.net/api/v2'
-      : 'https://pay.chargily.net/test/api/v2',
-  };
-}
 
 /**
  * Notifie tous les magasins actifs (avec token FCM enregistré) dès
@@ -387,8 +396,19 @@ exports.attacherEmailRecuperationTelephone = functions.https.onCall(
           "Cet email ne correspond pas à celui enregistré pour ce compte. Contacte le support si tu ne t'en souviens plus."
         );
       }
-      // Rien à changer : l'email réel est déjà celui-là, le client peut
-      // directement demander la réinitialisation Firebase standard.
+      // Auto-réparation pour les comptes qui ont récupéré leur email
+      // avant l'ajout du custom claim ci-dessous : pose le claim
+      // manquant s'il n'y est pas déjà, pour débloquer les écritures
+      // Firestore (permission-denied) sans action manuelle.
+      const claimKeyExistant = type === 'buyer' ? 'buyerId' : 'storeId';
+      if (!userRecord.customClaims || userRecord.customClaims[claimKeyExistant] !== numero) {
+        await admin.auth().setCustomUserClaims(userRecord.uid, {
+          ...(userRecord.customClaims || {}),
+          [claimKeyExistant]: numero,
+        });
+      }
+      // Rien à changer côté email : le client peut directement demander
+      // la réinitialisation Firebase standard.
       return { email: authEmailActuel };
     }
 
@@ -398,6 +418,20 @@ exports.attacherEmailRecuperationTelephone = functions.https.onCall(
     await admin.auth().updateUser(userRecord.uid, {
       email,
       emailVerified: false,
+    });
+    // Pose un custom claim qui rattache le compte à son numéro
+    // indépendamment de l'email désormais utilisé : sans ça, les règles
+    // Firestore (numeroDepuisEmailTechnique / numeroClientDepuisEmail),
+    // basées sur le domaine "@elbouni.local"/"@vroumclient.local" de
+    // l'email, ne reconnaissent plus jamais ce compte comme propriétaire
+    // de ses documents une fois l'email réel branché (permission-denied
+    // sur toute écriture, ex: envoi d'une preuve de paiement) — le claim
+    // ne sera actif qu'à la prochaine connexion du compte (le jeton
+    // actuel, s'il y en a un, ne le contient pas encore).
+    const claimKey = type === 'buyer' ? 'buyerId' : 'storeId';
+    await admin.auth().setCustomUserClaims(userRecord.uid, {
+      ...(userRecord.customClaims || {}),
+      [claimKey]: numero,
     });
     await docRef.set({ authEmail: email }, { merge: true });
 
@@ -471,7 +505,9 @@ function db_ref(storeId, paymentId) {
  * l'app (PaymentService.createCheckout) — jamais de clé secrète côté
  * client, tout part d'ici.
  */
-exports.createChargilyCheckout = functions.https.onCall(async (data, context) => {
+exports.createChargilyCheckout = functions
+  .runWith({ secrets: [chargilySecretKey] })
+  .https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Connecte-toi d\'abord.');
   }
@@ -537,7 +573,9 @@ exports.createChargilyCheckout = functions.https.onCall(async (data, context) =>
  * forfait payé. C'est ce qui rend le paiement "automatique" — le magasin
  * n'a rien d'autre à faire une fois la carte validée sur la page Chargily.
  */
-exports.chargilyWebhook = functions.https.onRequest(async (req, res) => {
+exports.chargilyWebhook = functions
+  .runWith({ secrets: [chargilyWebhookSecret] })
+  .https.onRequest(async (req, res) => {
   const { webhookSecret } = chargilyConfig();
   const signature = req.headers['signature'];
 

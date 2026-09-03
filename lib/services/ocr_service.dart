@@ -82,6 +82,14 @@ class ExpiryStatus {
     }
     return 'OK - ${daysRemaining}j restants';
   }
+
+  String labelFor(bool isAr) {
+    if (!isAr) return label;
+    if (isExpired) {
+      return 'منتهي منذ ${daysRemaining.abs()} يوم - يجب التجديد';
+    }
+    return 'صالح - يتبقى ${daysRemaining} يوم';
+  }
 }
 
 enum StatusLevel { ok, warning, expired }

@@ -7,6 +7,7 @@ import 'parts_portal_screen.dart';
 import 'profile_screen.dart';
 import 'sos/depanneuse_portal_screen.dart';
 import 'sos/sos_alert_sent_screen.dart';
+import 'sos/tel_picker_dialog.dart';
 import 'sos/wilaya_picker_dialog.dart';
 import 'vehicles_screen.dart';
 
@@ -72,9 +73,16 @@ class _HomeScreenState extends State<HomeScreen> {
       await SettingsService.setWilaya(wilaya);
     }
 
+    var tel = SettingsService.userTel;
+    if (tel == null) {
+      tel = await showTelPickerDialog(context, accentColor: widget.config.sosColor);
+      if (tel == null || !mounted) return;
+      await SettingsService.setUserTel(tel);
+    }
+
     setState(() => _sosEnvoiEnCours = true);
     try {
-      final alertId = await SosService.sendAlert(wilaya: wilaya);
+      final alertId = await SosService.sendAlert(wilaya: wilaya, telephone: tel);
       if (!mounted) return;
       Navigator.push(
         context,

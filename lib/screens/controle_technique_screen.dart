@@ -13,6 +13,7 @@ import '../widgets/status_card.dart';
 class ControleTechniqueScreen extends StatefulWidget {
   final AppConfig config;
   final Vehicule? vehicule;
+  final bool isAr;
 
   /// true quand ce widget est empilé dans la fiche véhicule à 3 sections
   /// (Carte Grise / Assurance / Contrôle technique) plutôt qu'affiché seul
@@ -24,6 +25,7 @@ class ControleTechniqueScreen extends StatefulWidget {
     super.key,
     required this.config,
     this.vehicule,
+    this.isAr = false,
     this.embedded = false,
   });
 
@@ -43,6 +45,8 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
 
   ExpiryStatus? _status; // calculé localement via OCR -> fait foi
   ControleTechniqueInfo? _info; // détails structurés via Gemini -> complément
+
+  String _t(String fr, String ar) => widget.isAr ? ar : fr;
 
   @override
   void initState() {
@@ -122,16 +126,20 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
       if (expiration != null) {
         _status = ExpiryStatus(expirationDate: expiration);
       } else {
-        _error =
-            'Aucune date reconnue sur cette photo. Cadre bien tout le '
-            'document, y compris la case en bas avec la date de la '
-            'PROCHAINE visite (pas seulement le haut du document), ou '
-            'vérifie manuellement.';
+        _error = _t(
+          'Aucune date reconnue sur cette photo. Cadre bien tout le '
+              'document, y compris la case en bas avec la date de la '
+              'PROCHAINE visite (pas seulement le haut du document), ou '
+              'vérifie manuellement.',
+          'لم يتم التعرف على أي تاريخ في هذه الصورة. أطّر الوثيقة كاملةً، '
+              'بما في ذلك الخانة السفلية التي تحمل تاريخ الزيارة القادمة '
+              '(وليس فقط أعلى الوثيقة)، أو تحقق يدويًا.',
+        );
       }
 
       await _saveToVehicule();
     } catch (e) {
-      _error = 'Erreur de lecture de l\'image : $e';
+      _error = _t('Erreur de lecture de l\'image : $e', 'خطأ في قراءة الصورة: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -167,22 +175,33 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
         if (!widget.embedded) ...[
           Text(
             widget.vehicule != null
-                ? 'Contrôle technique — ${widget.vehicule!.nom}'
-                : 'Contrôle technique',
+                ? _t(
+                    'Contrôle technique — ${widget.vehicule!.nom}',
+                    'الفحص التقني — ${widget.vehicule!.nom}',
+                  )
+                : _t('Contrôle technique', 'الفحص التقني'),
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Photographie l\'attestation de contrôle technique pour '
-            'calculer les jours restants avant le prochain passage.',
-            style: TextStyle(color: Colors.black54),
+          Text(
+            _t(
+              'Photographie l\'attestation de contrôle technique pour '
+                  'calculer les jours restants avant le prochain passage.',
+              'صوّر شهادة الفحص التقني لحساب الأيام المتبقية قبل الموعد القادم.',
+            ),
+            style: const TextStyle(color: Colors.black54),
           ),
           const SizedBox(height: 4),
-          const Text(
-            '⚠️ Cadre bien TOUT le document, y compris la case en bas de '
-            'page avec la date de la PROCHAINE visite périodique — pas '
-            'seulement le tableau du haut.',
-            style: TextStyle(
+          Text(
+            _t(
+              '⚠️ Cadre bien TOUT le document, y compris la case en bas de '
+                  'page avec la date de la PROCHAINE visite périodique — pas '
+                  'seulement le tableau du haut.',
+              '⚠️ أطّر الوثيقة بالكامل، بما في ذلك الخانة أسفل الصفحة التي '
+                  'تحمل تاريخ الزيارة الدورية القادمة — وليس فقط الجدول '
+                  'العلوي.',
+            ),
+            style: const TextStyle(
                 color: Colors.black54,
                 fontSize: 12,
                 fontStyle: FontStyle.italic),
@@ -196,7 +215,7 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
                 onPressed:
                     _loading ? null : () => _pickImage(ImageSource.camera),
                 icon: const Icon(Icons.camera_alt),
-                label: const Text('Caméra'),
+                label: Text(_t('Caméra', 'الكاميرا')),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
                   backgroundColor: widget.config.primaryColor,
@@ -210,7 +229,7 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
                 onPressed:
                     _loading ? null : () => _pickImage(ImageSource.gallery),
                 icon: const Icon(Icons.photo_library),
-                label: const Text('Galerie'),
+                label: Text(_t('Galerie', 'المعرض')),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
                 ),
@@ -241,7 +260,7 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
                 style: const TextStyle(color: Color(0xFF991B1B))),
           ),
         if (_status != null) ...[
-          StatusCard(status: _status!),
+          StatusCard(status: _status!, isAr: widget.isAr),
           const SizedBox(height: 16),
         ],
         if (_info != null &&
@@ -258,13 +277,13 @@ class _ControleTechniqueScreenState extends State<ControleTechniqueScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Détails',
+                Text(_t('Détails', 'التفاصيل'),
                     style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 const SizedBox(height: 8),
-                _infoRow('Centre', _info!.centre),
-                _infoRow('Numéro', _info!.numero),
-                _infoRow('Kilométrage', _info!.kilometrage),
+                _infoRow(_t('Centre', 'المركز'), _info!.centre),
+                _infoRow(_t('Numéro', 'الرقم'), _info!.numero),
+                _infoRow(_t('Kilométrage', 'عدد الكيلومترات'), _info!.kilometrage),
               ],
             ),
           ),

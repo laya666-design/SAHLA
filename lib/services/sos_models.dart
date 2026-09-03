@@ -13,6 +13,7 @@ class SosStatus {
 class SosAlert {
   final String id;
   final String clientId;
+  final String clientTel;
   final String wilaya;
   final double? latitude;
   final double? longitude;
@@ -26,6 +27,7 @@ class SosAlert {
   SosAlert({
     required this.id,
     required this.clientId,
+    this.clientTel = '',
     required this.wilaya,
     this.latitude,
     this.longitude,
@@ -41,11 +43,19 @@ class SosAlert {
   bool get estOuverte => statut == SosStatus.ouverte;
   bool get estAcceptee => statut == SosStatus.acceptee;
 
+  /// Lien Google Maps pointant vers la position du véhicule en panne,
+  /// utilisable par la dépanneuse pour s'y rendre. Null si pas de
+  /// position GPS disponible.
+  String? get lienMapsPosition => aUnePosition
+      ? 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude'
+      : null;
+
   factory SosAlert.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
     return SosAlert(
       id: doc.id,
       clientId: d['clientId']?.toString() ?? '',
+      clientTel: d['clientTel']?.toString() ?? '',
       wilaya: d['wilaya']?.toString() ?? '',
       latitude: (d['latitude'] as num?)?.toDouble(),
       longitude: (d['longitude'] as num?)?.toDouble(),
@@ -61,6 +71,7 @@ class SosAlert {
 
   Map<String, dynamic> toMap() => {
         'clientId': clientId,
+        'clientTel': clientTel,
         'wilaya': wilaya,
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,

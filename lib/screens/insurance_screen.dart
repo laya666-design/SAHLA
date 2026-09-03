@@ -17,6 +17,7 @@ class InsuranceScreen extends StatefulWidget {
   /// (Phase 1 — gestion multi-véhicules). Si null, l'écran fonctionne comme
   /// avant, sans persistance (compatibilité ascendante).
   final Vehicule? vehicule;
+  final bool isAr;
 
   /// true quand ce widget est empilé dans la fiche véhicule à 3 sections
   /// plutôt qu'affiché seul dans son propre onglet.
@@ -26,6 +27,7 @@ class InsuranceScreen extends StatefulWidget {
     super.key,
     required this.config,
     this.vehicule,
+    this.isAr = false,
     this.embedded = false,
   });
 
@@ -44,6 +46,8 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
 
   ExpiryStatus? _status; // calculé localement via OCR -> fait foi
   InsuranceInfo? _info; // détails structurés via Gemini -> complément
+
+  String _t(String fr, String ar) => widget.isAr ? ar : fr;
 
   @override
   void initState() {
@@ -113,9 +117,12 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
       if (expiration != null) {
         _status = ExpiryStatus(expirationDate: expiration);
       } else {
-        _error =
-            'Aucune date reconnue sur cette photo. Reprends la photo bien '
-            'cadrée sur les dates, ou vérifie manuellement.';
+        _error = _t(
+          'Aucune date reconnue sur cette photo. Reprends la photo bien '
+              'cadrée sur les dates, ou vérifie manuellement.',
+          'لم يتم التعرف على أي تاريخ في هذه الصورة. أعد التقاط الصورة مع '
+              'تأطير جيد للتواريخ، أو تحقق يدويًا.',
+        );
       }
 
       // 2) Gemini en complément pour les détails (compagnie, nom, marque...)
@@ -129,7 +136,7 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
 
       await _saveToVehicule();
     } catch (e) {
-      _error = 'Erreur de lecture de l\'image : $e';
+      _error = _t('Erreur de lecture de l\'image : $e', 'خطأ في قراءة الصورة: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -165,14 +172,20 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
         if (!widget.embedded) ...[
           Text(
             widget.vehicule != null
-                ? 'Assurance / Vignette — ${widget.vehicule!.nom}'
-                : 'Assurance / Vignette',
+                ? _t(
+                    'Assurance / Vignette — ${widget.vehicule!.nom}',
+                    'التأمين / البطاقة الضريبية — ${widget.vehicule!.nom}',
+                  )
+                : _t('Assurance / Vignette', 'التأمين / البطاقة الضريبية'),
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Photographie la carte jaune pour calculer les jours restants.',
-            style: TextStyle(color: Colors.black54),
+          Text(
+            _t(
+              'Photographie la carte jaune pour calculer les jours restants.',
+              'صوّر البطاقة الصفراء لحساب الأيام المتبقية.',
+            ),
+            style: const TextStyle(color: Colors.black54),
           ),
           const SizedBox(height: 16),
         ],
@@ -183,7 +196,7 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
                 onPressed:
                     _loading ? null : () => _pickImage(ImageSource.camera),
                 icon: const Icon(Icons.camera_alt),
-                label: const Text('Caméra'),
+                label: Text(_t('Caméra', 'الكاميرا')),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
                   backgroundColor: widget.config.primaryColor,
@@ -197,7 +210,7 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
                 onPressed:
                     _loading ? null : () => _pickImage(ImageSource.gallery),
                 icon: const Icon(Icons.photo_library),
-                label: const Text('Galerie'),
+                label: Text(_t('Galerie', 'المعرض')),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
                 ),
@@ -228,7 +241,7 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
                 style: const TextStyle(color: Color(0xFF991B1B))),
           ),
         if (_status != null) ...[
-          StatusCard(status: _status!),
+          StatusCard(status: _status!, isAr: widget.isAr),
           const SizedBox(height: 16),
         ],
         if (_info != null &&
@@ -245,15 +258,15 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Détails',
+                Text(_t('Détails', 'التفاصيل'),
                     style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 const SizedBox(height: 8),
-                _infoRow('Compagnie', _info!.compagnie),
-                _infoRow('Nom', _info!.nom),
-                _infoRow('Véhicule', _info!.marque),
-                _infoRow('Police', _info!.police),
-                _infoRow('Début', _info!.debut),
+                _infoRow(_t('Compagnie', 'الشركة'), _info!.compagnie),
+                _infoRow(_t('Nom', 'الاسم'), _info!.nom),
+                _infoRow(_t('Véhicule', 'المركبة'), _info!.marque),
+                _infoRow(_t('Police', 'رقم البوليصة'), _info!.police),
+                _infoRow(_t('Début', 'تاريخ البداية'), _info!.debut),
               ],
             ),
           ),

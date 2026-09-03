@@ -33,8 +33,29 @@ service cloud.firestore {
         : null;
     }
 
+    // Numéro rattaché via un custom claim (posé par la Cloud Function
+    // attacherEmailRecuperationTelephone au moment où l'email technique
+    // "@elbouni.local"/"@vroumclient.local" est remplacé par un vrai
+    // email de récupération). Sans ça, numeroDepuisEmailTechnique() et
+    // numeroClientDepuisEmail() ne matchent plus jamais après une
+    // récupération de mot de passe, car le domaine de l'email a changé —
+    // ce claim survit à ce changement d'email.
+    function storeIdFromClaim() {
+      return request.auth != null ? request.auth.token.get('storeId', null) : null;
+    }
+
+    function buyerIdFromClaim() {
+      return request.auth != null ? request.auth.token.get('buyerId', null) : null;
+    }
+
     function currentUserIds() {
-      return [request.auth.uid, numeroDepuisEmailTechnique(), numeroClientDepuisEmail()];
+      return [
+        request.auth.uid,
+        numeroDepuisEmailTechnique(),
+        numeroClientDepuisEmail(),
+        storeIdFromClaim(),
+        buyerIdFromClaim()
+      ];
     }
 
     function isDepanneuseOwner(depanneuseId) {
@@ -46,7 +67,8 @@ service cloud.firestore {
     function isOwner(storeId) {
       return request.auth!= null
         && (request.auth.uid == storeId
-            || numeroDepuisEmailTechnique() == storeId);
+            || numeroDepuisEmailTechnique() == storeId
+            || storeIdFromClaim() == storeId);
     }
 
     function isRequestOwnerData(data) {

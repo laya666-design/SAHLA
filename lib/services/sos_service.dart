@@ -35,8 +35,18 @@ class SosService {
   }
 
   /// Envoie une alerte de panne, position GPS incluse en best-effort
-  /// (jamais bloquant si le GPS est indisponible/refusé).
-  static Future<String> sendAlert({required String wilaya}) async {
+  /// (jamais bloquant si le GPS est indisponible/refusé). Le téléphone
+  /// du client est requis : c'est le seul moyen pour la dépanneuse qui
+  /// accepte de le rappeler (le compte SOS est anonyme, sans numéro
+  /// Firebase Auth).
+  static Future<String> sendAlert({
+    required String wilaya,
+    required String telephone,
+  }) async {
+    final numero = StoreService.normaliserNumeroLocal(telephone);
+    if (numero == null) {
+      throw Exception('Numéro invalide. Utilise le format 0556 65 32 20.');
+    }
     final uid = await _ensureSignedIn();
     final position = await LocationService.getCurrentPosition();
 
@@ -44,6 +54,7 @@ class SosService {
     final alert = SosAlert(
       id: id,
       clientId: uid,
+      clientTel: numero,
       wilaya: wilaya,
       latitude: position.latitude,
       longitude: position.longitude,

@@ -117,4 +117,16 @@ class SettingsService {
   static Future<void> setWilaya(String value) async {
     await _box.put(_wilayaKey, value);
   }
+
+  // --- Téléphone de l'utilisateur ---
+  // Demandé une seule fois (au premier envoi d'une alerte SOS), pour que
+  // la dépanneuse qui accepte puisse rappeler le client en panne — voir
+  // sos_service.dart. Modifiable ensuite depuis l'onglet Profil.
+  static const String _userTelKey = 'userTel';
+
+  static String? get userTel => _box.get(_userTelKey) as String?;
+
+  static Future<void> setUserTel(String value) async {
+    await _box.put(_userTelKey, value);
+  }
 }

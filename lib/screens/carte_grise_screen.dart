@@ -24,6 +24,7 @@ class CarteGriseScreen extends StatefulWidget {
   final AppConfig config;
   final Vehicule? vehicule;
   final String typeVehicule;
+  final bool isAr;
 
   /// true quand ce widget est empilé dans la fiche véhicule à 3 sections
   /// plutôt qu'affiché seul dans son propre onglet.
@@ -37,6 +38,7 @@ class CarteGriseScreen extends StatefulWidget {
     required this.config,
     this.vehicule,
     this.typeVehicule = TypeVehicule.voiture,
+    this.isAr = false,
     this.embedded = false,
     this.onVehiculeCree,
   });
@@ -55,6 +57,8 @@ class _CarteGriseScreenState extends State<CarteGriseScreen> {
   CarteGriseInfo? _info;
 
   bool get _modeCreation => widget.vehicule == null;
+
+  String _t(String fr, String ar) => widget.isAr ? ar : fr;
 
   @override
   void initState() {
@@ -140,19 +144,23 @@ class _CarteGriseScreenState extends State<CarteGriseScreen> {
     try {
       final json = await _gemini.analyzeCarteGrise(file);
       if (json.containsKey('error')) {
-        _error = 'Erreur : ${json['error']}';
+        _error = _t('Erreur : ${json['error']}', 'خطأ: ${json['error']}');
       } else {
         final info = CarteGriseInfo.fromJson(json);
         if (info.estVide) {
-          _error = 'Aucune information reconnue sur cette photo. '
-              'Reprends la photo bien cadrée sur la carte grise.';
+          _error = _t(
+            'Aucune information reconnue sur cette photo. '
+                'Reprends la photo bien cadrée sur la carte grise.',
+            'لم يتم التعرف على أي معلومة في هذه الصورة. '
+                'أعد التقاط الصورة مع تأطير جيد للبطاقة الرمادية.',
+          );
         } else {
           _info = info;
           await _appliquerScan(info);
         }
       }
     } catch (e) {
-      _error = 'Erreur d\'analyse : $e';
+      _error = _t('Erreur d\'analyse : $e', 'خطأ في التحليل: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -187,25 +195,40 @@ class _CarteGriseScreenState extends State<CarteGriseScreen> {
         if (!widget.embedded) ...[
           Text(
             _modeCreation
-                ? 'Scanner la carte grise'
-                : 'Carte Grise — ${widget.vehicule!.nom}',
+                ? _t('Scanner la carte grise', 'مسح البطاقة الرمادية')
+                : _t(
+                    'Carte Grise — ${widget.vehicule!.nom}',
+                    'البطاقة الرمادية — ${widget.vehicule!.nom}',
+                  ),
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 4),
           Text(
             _modeCreation
-                ? 'Photographie la carte grise : la fiche du véhicule sera '
-                    'créée automatiquement.'
-                : 'Photographie la carte grise pour identifier le moteur et '
-                    'améliorer la reconnaissance des pièces compatibles.',
+                ? _t(
+                    'Photographie la carte grise : la fiche du véhicule sera '
+                        'créée automatiquement.',
+                    'صوّر البطاقة الرمادية: سيتم إنشاء بطاقة المركبة تلقائيًا.',
+                  )
+                : _t(
+                    'Photographie la carte grise pour identifier le moteur et '
+                        'améliorer la reconnaissance des pièces compatibles.',
+                    'صوّر البطاقة الرمادية لتحديد المحرك وتحسين التعرف على '
+                        'القطع المتوافقة.',
+                  ),
             style: const TextStyle(color: Colors.black54),
           ),
           const SizedBox(height: 4),
-          const Text(
-            '⚠️ Cadre bien le TABLEAU DU BAS (marque, type, châssis, '
-            'puissance) : c\'est là que se trouvent toutes les infos '
-            'utiles, pas seulement le haut avec le nom du propriétaire.',
-            style: TextStyle(
+          Text(
+            _t(
+              '⚠️ Cadre bien le TABLEAU DU BAS (marque, type, châssis, '
+              'puissance) : c\'est là que se trouvent toutes les infos '
+              'utiles, pas seulement le haut avec le nom du propriétaire.',
+              '⚠️ أطّر جيدًا الجدول السفلي (الماركة، النوع، رقم الهيكل، '
+              'القوة الجبائية): هناك تجد كل المعلومات المفيدة، وليس فقط '
+              'الجزء العلوي الذي يحمل اسم المالك.',
+            ),
+            style: const TextStyle(
                 color: Colors.black54,
                 fontSize: 12,
                 fontStyle: FontStyle.italic),
@@ -219,7 +242,7 @@ class _CarteGriseScreenState extends State<CarteGriseScreen> {
                 onPressed:
                     _loading ? null : () => _pickImage(ImageSource.camera),
                 icon: const Icon(Icons.camera_alt),
-                label: const Text('Prendre Photo'),
+                label: Text(_t('Prendre Photo', 'التقاط صورة')),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
                   backgroundColor: widget.config.primaryColor,
@@ -233,7 +256,7 @@ class _CarteGriseScreenState extends State<CarteGriseScreen> {
                 onPressed:
                     _loading ? null : () => _pickImage(ImageSource.gallery),
                 icon: const Icon(Icons.photo_library),
-                label: const Text('Galerie'),
+                label: Text(_t('Galerie', 'المعرض')),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
                 ),
@@ -284,28 +307,33 @@ class _CarteGriseScreenState extends State<CarteGriseScreen> {
                     const SizedBox(width: 6),
                     Text(
                       _modeCreation
-                          ? 'Véhicule créé'
-                          : 'Moteur identifié',
+                          ? _t('Véhicule créé', 'تم إنشاء المركبة')
+                          : _t('Moteur identifié', 'تم تحديد المحرك'),
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                _infoRow('Marque', _info!.marque),
-                _infoRow('Modèle', _info!.modele),
-                _infoRow('Année', _info!.annee?.toString() ?? ''),
-                _infoRow('Châssis', _info!.chassis),
-                _infoRow('Puissance fiscale', _info!.puissanceFiscale),
-                _infoRow('Code moteur', _info!.engineCode),
-                _infoRow('Carburant', _info!.fuelType),
+                _infoRow(_t('Marque', 'الماركة'), _info!.marque),
+                _infoRow(_t('Modèle', 'الموديل'), _info!.modele),
+                _infoRow(_t('Année', 'السنة'), _info!.annee?.toString() ?? ''),
+                _infoRow(_t('Châssis', 'رقم الهيكل'), _info!.chassis),
+                _infoRow(_t('Puissance fiscale', 'القوة الجبائية'),
+                    _info!.puissanceFiscale),
+                _infoRow(_t('Code moteur', 'رمز المحرك'), _info!.engineCode),
+                _infoRow(_t('Carburant', 'نوع الوقود'), _info!.fuelType),
                 if (_info!.engineCode.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'Code moteur non déduit avec certitude — '
-                      'vérifiable sur le carnet d\'entretien.',
-                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                      _t(
+                        'Code moteur non déduit avec certitude — '
+                        'vérifiable sur le carnet d\'entretien.',
+                        'لم يتم تحديد رمز المحرك بشكل مؤكد — '
+                        'يمكن التحقق منه في دفتر الصيانة.',
+                      ),
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
                     ),
                   ),
               ],
@@ -314,8 +342,12 @@ class _CarteGriseScreenState extends State<CarteGriseScreen> {
           if (!_modeCreation) ...[
             const SizedBox(height: 12),
             Text(
-              'Ces infos seront utilisées automatiquement dans le Scanner '
-              'IA pièces pour affiner l\'identification.',
+              _t(
+                'Ces infos seront utilisées automatiquement dans le Scanner '
+                'IA pièces pour affiner l\'identification.',
+                'ستُستخدم هذه المعلومات تلقائيًا في الماسح الذكي للقطع '
+                'لتحسين دقة التعرف.',
+              ),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],

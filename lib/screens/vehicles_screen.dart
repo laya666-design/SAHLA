@@ -167,6 +167,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
           body: CarteGriseScreen(
             config: widget.config,
             typeVehicule: selectedType,
+            isAr: widget.isAr,
             onVehiculeCree: (_) {
               if (Navigator.canPop(context)) Navigator.pop(context, true);
             },
@@ -438,6 +439,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                   CarteGriseScreen(
                     config: widget.config,
                     vehicule: v,
+                    isAr: widget.isAr,
                     embedded: true,
                   ),
                   const Padding(
@@ -449,6 +451,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                 InsuranceScreen(
                   config: widget.config,
                   vehicule: v,
+                  isAr: widget.isAr,
                   embedded: true,
                 ),
                 const Padding(
@@ -460,6 +463,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                 ControleTechniqueScreen(
                   config: widget.config,
                   vehicule: v,
+                  isAr: widget.isAr,
                   embedded: true,
                 ),
               ],

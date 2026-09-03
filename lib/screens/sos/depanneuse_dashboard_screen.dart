@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
 import '../../services/sos_models.dart';
 import '../../services/sos_service.dart';
+import 'depanneuse_alert_accepted_screen.dart';
 
 /// Tableau de bord dépanneuse : liste des alertes SOS ouvertes dans sa
 /// wilaya, avec bouton "J'y vais" pour accepter (affiche alors le
@@ -49,18 +51,42 @@ class _DepanneuseDashboardScreenState
     Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
+  // Alertes en cours d'acceptation : désactive le bouton pendant l'appel
+  // réseau, pour qu'un appui affiche tout de suite un retour visuel (au
+  // lieu de sembler ne rien faire pendant l'attente Firestore).
+  final Set<String> _enCoursAcceptation = {};
+
   Future<void> _accepter(SosAlert alerte) async {
+    if (_enCoursAcceptation.contains(alerte.id)) return;
+    setState(() => _enCoursAcceptation.add(alerte.id));
     try {
       await SosService.acceptAlert(alerte.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Alerte acceptée — ton numéro est visible côté client.')),
+      // Emmène directement la dépanneuse sur le numéro du client et la
+      // position du véhicule, au lieu d'un simple SnackBar qui pouvait
+      // passer inaperçu.
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DepanneuseAlertAcceptedScreen(
+            config: widget.config,
+            alerte: alerte,
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur : $e')),
       );
+    } finally {
+      if (mounted) setState(() => _enCoursAcceptation.remove(alerte.id));
+    }
+  }
+
+  Future<void> _ouvrirCarte(String lien) async {
+    final uri = Uri.parse(lien);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -224,12 +250,31 @@ class _DepanneuseDashboardScreenState
                                           style: const TextStyle(fontWeight: FontWeight.w600),
                                         ),
                                         const SizedBox(height: 4),
-                                        Text(
-                                          a.aUnePosition
-                                              ? 'Position GPS disponible'
-                                              : 'Sans position GPS',
-                                          style: const TextStyle(color: Colors.black54, fontSize: 13),
-                                        ),
+                                        if (a.aUnePosition)
+                                          InkWell(
+                                            onTap: () => _ouvrirCarte(a.lienMapsPosition!),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.location_on, size: 15, color: sos),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Voir la position du véhicule',
+                                                  style: TextStyle(
+                                                    color: sos,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    decoration: TextDecoration.underline,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        else
+                                          const Text(
+                                            'Sans position GPS',
+                                            style: TextStyle(color: Colors.black54, fontSize: 13),
+                                          ),
                                         Text(
                                           '${a.dateCreation.hour.toString().padLeft(2, '0')}:${a.dateCreation.minute.toString().padLeft(2, '0')}',
                                           style: const TextStyle(color: Colors.black54, fontSize: 13),
@@ -238,9 +283,20 @@ class _DepanneuseDashboardScreenState
                                         SizedBox(
                                           width: double.infinity,
                                           child: FilledButton(
-                                            onPressed: () => _accepter(a),
+                                            onPressed: _enCoursAcceptation.contains(a.id)
+                                                ? null
+                                                : () => _accepter(a),
                                             style: FilledButton.styleFrom(backgroundColor: sos),
-                                            child: const Text("J'y vais"),
+                                            child: _enCoursAcceptation.contains(a.id)
+                                                ? const SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Colors.white,
+                                                    ),
+                                                  )
+                                                : const Text("J'y vais"),
                                           ),
                                         ),
                                       ],

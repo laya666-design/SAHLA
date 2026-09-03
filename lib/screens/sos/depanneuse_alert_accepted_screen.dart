@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
 import '../../services/sos_models.dart';
+import '../../services/sos_service.dart';
 
 /// Écran affiché à la dépanneuse juste après avoir appuyé sur "J'y vais" :
 /// confirme la prise en charge et donne tout de suite le numéro du client
 /// et sa position, pour partir dépanner sans repasser par la liste.
-class DepanneuseAlertAcceptedScreen extends StatelessWidget {
+/// Permet aussi de confirmer l'arrivée sur place une fois sur les lieux.
+class DepanneuseAlertAcceptedScreen extends StatefulWidget {
   final AppConfig config;
   final SosAlert alerte;
 
@@ -15,6 +17,22 @@ class DepanneuseAlertAcceptedScreen extends StatelessWidget {
     required this.config,
     required this.alerte,
   });
+
+  @override
+  State<DepanneuseAlertAcceptedScreen> createState() =>
+      _DepanneuseAlertAcceptedScreenState();
+}
+
+class _DepanneuseAlertAcceptedScreenState
+    extends State<DepanneuseAlertAcceptedScreen> {
+  bool _arriveeConfirmee = false;
+  bool _enCours = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _arriveeConfirmee = widget.alerte.estArrivee;
+  }
 
   Future<void> _appeler(String tel) async {
     final uri = Uri(scheme: 'tel', path: tel);
@@ -28,8 +46,28 @@ class DepanneuseAlertAcceptedScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _confirmerArrivee() async {
+    setState(() => _enCours = true);
+    try {
+      await SosService.confirmArrival(widget.alerte.id);
+      if (!mounted) return;
+      setState(() {
+        _arriveeConfirmee = true;
+        _enCours = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _enCours = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final alerte = widget.alerte;
+    final config = widget.config;
     final sos = config.sosColor;
     final lienMaps = alerte.lienMapsPosition;
 
@@ -89,6 +127,45 @@ class DepanneuseAlertAcceptedScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            if (_arriveeConfirmee)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Arrivée confirmée',
+                      style: TextStyle(color: Colors.green, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed: _enCours ? null : _confirmerArrivee,
+                  style: FilledButton.styleFrom(backgroundColor: Colors.green.shade600),
+                  icon: _enCours
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.flag),
+                  label: const Text('Confirmer mon arrivée'),
+                ),
+              ),
             const SizedBox(height: 24),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),

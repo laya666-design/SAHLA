@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class SosStatus {
   static const ouverte = 'ouverte'; // envoyée, en attente d'une dépanneuse
   static const acceptee = 'acceptee'; // une dépanneuse a répondu
+  static const arrivee = 'arrivee'; // la dépanneuse est sur place
   static const annulee = 'annulee'; // annulée par l'utilisateur
 }
 
@@ -23,6 +24,7 @@ class SosAlert {
   final String? acceptedByDepanneuseNom;
   final String? acceptedByDepanneuseTel;
   final DateTime? dateAcceptation;
+  final DateTime? dateArrivee;
 
   SosAlert({
     required this.id,
@@ -37,11 +39,13 @@ class SosAlert {
     this.acceptedByDepanneuseNom,
     this.acceptedByDepanneuseTel,
     this.dateAcceptation,
+    this.dateArrivee,
   });
 
   bool get aUnePosition => latitude != null && longitude != null;
   bool get estOuverte => statut == SosStatus.ouverte;
   bool get estAcceptee => statut == SosStatus.acceptee;
+  bool get estArrivee => statut == SosStatus.arrivee;
 
   /// Lien Google Maps pointant vers la position du véhicule en panne,
   /// utilisable par la dépanneuse pour s'y rendre. Null si pas de
@@ -66,6 +70,7 @@ class SosAlert {
       acceptedByDepanneuseNom: d['acceptedByDepanneuseNom']?.toString(),
       acceptedByDepanneuseTel: d['acceptedByDepanneuseTel']?.toString(),
       dateAcceptation: (d['dateAcceptation'] as Timestamp?)?.toDate(),
+      dateArrivee: (d['dateArrivee'] as Timestamp?)?.toDate(),
     );
   }
 

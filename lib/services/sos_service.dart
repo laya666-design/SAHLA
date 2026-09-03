@@ -249,6 +249,18 @@ class SosService {
     });
   }
 
+  /// La dépanneuse confirme qu'elle est arrivée sur place, une fois sur
+  /// les lieux de la panne.
+  static Future<void> confirmArrival(String alertId) async {
+    await FirebaseFirestore.instance
+        .collection(_alertsCollection)
+        .doc(alertId)
+        .update({
+      'statut': SosStatus.arrivee,
+      'dateArrivee': FieldValue.serverTimestamp(),
+    });
+  }
+
   static Future<void> saveFcmToken() async {
     final docId = currentDepanneuseDocId;
     if (docId == null) return;

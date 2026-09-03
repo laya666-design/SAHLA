@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
+import '../services/marketplace_models.dart';
 import '../services/marketplace_service.dart';
 import 'marketplace/buyer_phone_login_screen.dart';
 import 'marketplace/mes_demandes_screen.dart';
@@ -19,6 +22,15 @@ class BuyerPortalScreen extends StatefulWidget {
 class _BuyerPortalScreenState extends State<BuyerPortalScreen> {
   bool _ready = false;
 
+  // Compte, en direct, le nombre de réponses de magasins reçues sur les
+  // demandes encore ouvertes — affiché en badge sur l'icône "Mes demandes".
+  StreamSubscription<List<PartRequest>>? _requestsSub;
+  final Map<String, StreamSubscription<List<PartOffer>>> _offerSubs = {};
+  final Map<String, int> _offerCounts = {};
+
+  int get _totalReponses =>
+      _offerCounts.values.fold(0, (sum, n) => sum + n);
+
   bool get _ar => widget.isAr;
   String _t(String fr, String ar) => _ar ? ar : fr;
 
@@ -30,7 +42,51 @@ class _BuyerPortalScreenState extends State<BuyerPortalScreen> {
 
   Future<void> _init() async {
     await MarketplaceService.loadPhoneAsId();
-    if (mounted) setState(() => _ready = true);
+    if (mounted) {
+      setState(() => _ready = true);
+      _subscribeReponses();
+    }
+  }
+
+  /// Écoute mes demandes ouvertes, puis les réponses de chacune, pour
+  /// maintenir un total de magasins ayant répondu à jour en temps réel.
+  void _subscribeReponses() {
+    _requestsSub?.cancel();
+    _requestsSub = MarketplaceService.myRequests().listen((requests) {
+      if (!mounted) return;
+      final ouvertes = requests.where((r) => r.estOuverte).toList();
+      final ids = ouvertes.map((r) => r.id).toSet();
+
+      // Désabonner les demandes qui ne sont plus ouvertes (vendues/fermées).
+      for (final id in _offerSubs.keys.toList()) {
+        if (!ids.contains(id)) {
+          _offerSubs[id]?.cancel();
+          _offerSubs.remove(id);
+          _offerCounts.remove(id);
+        }
+      }
+
+      for (final r in ouvertes) {
+        if (!_offerSubs.containsKey(r.id)) {
+          _offerSubs[r.id] = MarketplaceService.offersFor(r.id).listen(
+            (offers) {
+              if (!mounted) return;
+              setState(() => _offerCounts[r.id] = offers.length);
+            },
+            onError: (_) {},
+          );
+        }
+      }
+    }, onError: (_) {});
+  }
+
+  @override
+  void dispose() {
+    _requestsSub?.cancel();
+    for (final s in _offerSubs.values) {
+      s.cancel();
+    }
+    super.dispose();
   }
 
   @override
@@ -57,7 +113,11 @@ class _BuyerPortalScreenState extends State<BuyerPortalScreen> {
         actions: [
           IconButton(
             tooltip: _t('Mes demandes', 'طلباتي'),
-            icon: const Icon(Icons.list_alt),
+            icon: Badge(
+              label: Text('$_totalReponses'),
+              isLabelVisible: _totalReponses > 0,
+              child: const Icon(Icons.list_alt),
+            ),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(

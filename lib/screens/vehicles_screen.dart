@@ -537,8 +537,6 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
             const SizedBox(height: 4),
             Text(_sousTitre, style: const TextStyle(color: Colors.black54)),
             const SizedBox(height: 12),
-            const AdBanner(),
-            const SizedBox(height: 4),
             if (_vehicules.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 32),
@@ -610,6 +608,13 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                     onTap: () => _openVehicle(v),
                   ),
                 )),
+            // Publicité déplacée après la liste (et masquée si vide) : le
+            // premier écran d'un nouvel utilisateur reste propre, sans pub
+            // au-dessus d'un état vide.
+            if (_vehicules.isNotEmpty) ...[
+              const AdBanner(),
+              const SizedBox(height: 4),
+            ],
             if (showLockedCard)
               Card(
                 margin: const EdgeInsets.only(bottom: 12),

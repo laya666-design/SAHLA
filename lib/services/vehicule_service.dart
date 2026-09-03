@@ -129,4 +129,20 @@ class SettingsService {
   static Future<void> setUserTel(String value) async {
     await _box.put(_userTelKey, value);
   }
+
+  // --- Réponses de magasins déjà vues (badge "Mes demandes") ---
+  // Persisté localement : le badge du Portail acheteur ne compte que les
+  // réponses jamais consultées, et se vide dès que l'utilisateur ouvre
+  // "Mes demandes" (voir buyer_portal_screen.dart).
+  static const String _seenOfferIdsKey = 'seenOfferIds';
+
+  static Set<String> get seenOfferIds =>
+      ((_box.get(_seenOfferIdsKey, defaultValue: const <String>[]) as List)
+          .map((e) => e.toString())
+          .toSet());
+
+  static Future<void> markOffersSeen(Iterable<String> offerIds) async {
+    final current = seenOfferIds..addAll(offerIds);
+    await _box.put(_seenOfferIdsKey, current.toList());
+  }
 }

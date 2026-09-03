@@ -6,10 +6,11 @@ import '../theme/app_theme.dart';
 import '../widgets/screen_background.dart';
 import 'admin/admin_login_screen.dart';
 
-/// Onglet Profil : remplace l'ancien onglet Carte (statique, peu utile).
-/// Regroupe le statut du compte, les réglages (langue, rappels) et le
-/// support — tout ce dont l'utilisateur a besoin en dehors des rubriques
-/// véhicules/pièces.
+/// Onglet Profil amélioré :
+/// - Carte compte claire (badge + nombre de véhicules)
+/// - Réglages (langue, type véhicule, rappels)
+/// - Carte Premium vendeuse + bottom sheet détaillé
+/// - Support (WhatsApp + Email + À propos)
 class ProfileScreen extends StatefulWidget {
   final AppConfig config;
   final ValueNotifier<bool> isAr;
@@ -27,7 +28,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  Future<void> _contactSupport() async {
+  // ─── Support ─────────────────────────────────────────────────────────────
+
+  Future<void> _contactEmail() async {
     final uri = Uri(
       scheme: 'mailto',
       path: 'contact@elbouni-pieces-auto.dz',
@@ -37,12 +40,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await launchUrl(uri);
   }
 
-  void _showPremiumComingSoon(
-      BuildContext context, String Function(String, String) t) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(t('Bientôt disponible', 'قريباً'))),
-    );
+  Future<void> _contactWhatsApp() async {
+    // Numéro support VROUM DZ (à adapter si besoin)
+    const phone = '213556653220'; // format international sans +
+    final uri = Uri.parse('https://wa.me/$phone');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('WhatsApp non disponible')),
+      );
+    }
   }
+
+  // ─── Labels véhicule ─────────────────────────────────────────────────────
 
   String _vehicleProfileLabel(String Function(String, String) t) {
     switch (SettingsService.vehicleProfile) {
@@ -55,32 +67,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // ─── Bottom sheet Type de véhicule ───────────────────────────────────────
+
   Future<void> _showVehicleProfilePicker(
       BuildContext context, String Function(String, String) t) async {
     final chosen = await showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.directions_car),
-              title: Text(t('Voiture', 'سيارة')),
-              onTap: () => Navigator.pop(ctx, 'voiture'),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  t('Type de véhicule', 'نوع المركبة'),
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  t(
+                    'Cela détermine les onglets affichés dans l\'application',
+                    'يحدد هذا التبويبات المعروضة في التطبيق',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 13, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 16),
+                _vehicleOption(
+                  ctx: ctx,
+                  value: 'voiture',
+                  icon: Icons.directions_car,
+                  title: t('Voiture', 'سيارة'),
+                  subtitle: t(
+                    'Assurance, contrôle technique, carte grise…',
+                    'تأمين، مراقبة تقنية، بطاقة رمادية…',
+                  ),
+                  selected: SettingsService.vehicleProfile == 'voiture',
+                ),
+                _vehicleOption(
+                  ctx: ctx,
+                  value: 'moto',
+                  icon: Icons.two_wheeler,
+                  title: t('Moto / Scooter', 'دراجة نارية / سكوتر'),
+                  subtitle: t(
+                    'Documents et pièces adaptés aux 2-roues',
+                    'وثائق وقطع مخصصة للدراجات',
+                  ),
+                  selected: SettingsService.vehicleProfile == 'moto',
+                ),
+                _vehicleOption(
+                  ctx: ctx,
+                  value: 'both',
+                  icon: Icons.sync_alt,
+                  title: t('Les deux', 'كلاهما'),
+                  subtitle: t(
+                    'Accès complet à toutes les fonctionnalités',
+                    'وصول كامل لجميع الميزات',
+                  ),
+                  selected: SettingsService.vehicleProfile == 'both' ||
+                      SettingsService.vehicleProfile == null,
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.two_wheeler),
-              title: Text(t('Moto / Scooter', 'دراجة نارية / سكوتر')),
-              onTap: () => Navigator.pop(ctx, 'moto'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.sync_alt),
-              title: Text(t('Les deux', 'كلاهما')),
-              onTap: () => Navigator.pop(ctx, 'both'),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
 
     if (chosen == null) return;
@@ -89,6 +159,273 @@ class _ProfileScreenState extends State<ProfileScreen> {
     widget.onVehicleProfileChanged?.call();
   }
 
+  Widget _vehicleOption({
+    required BuildContext ctx,
+    required String value,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool selected,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => Navigator.pop(ctx, value),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primaryLight : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: selected
+                    ? widget.config.primaryColor
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: selected ? Colors.white : Colors.grey.shade700,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_circle,
+                  color: widget.config.primaryColor, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Bottom sheet Premium ────────────────────────────────────────────────
+
+  void _showPremiumSheet(
+      BuildContext context, String Function(String, String) t) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'VROUM Premium',
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  t(
+                    'Tout ce dont vous avez besoin pour gérer vos véhicules sans limite.',
+                    'كل ما تحتاجه لإدارة مركباتك بلا حدود.',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 13, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 20),
+                _benefitRow(
+                  t('Véhicules illimités', 'مركبات غير محدودة'),
+                  t(
+                    'Ajoutez autant de voitures ou motos que vous voulez',
+                    'أضف أكبر عدد من السيارات أو الدراجات',
+                  ),
+                ),
+                _benefitRow(
+                  t('Rappels SMS & Appel', 'تذكيرات SMS ومكالمات'),
+                  t(
+                    'Ne ratez plus jamais une échéance d\'assurance ou de contrôle',
+                    'لن تفوت أبداً موعد تأمين أو مراقبة',
+                  ),
+                ),
+                _benefitRow(
+                  t('Support prioritaire', 'دعم ذو أولوية'),
+                  t(
+                    'Réponse en moins de 2h via WhatsApp',
+                    'رد في أقل من ساعتين عبر واتساب',
+                  ),
+                ),
+                _benefitRow(
+                  t('Accès anticipé', 'وصول مبكر'),
+                  t(
+                    'Nouvelles fonctionnalités en avant-première',
+                    'ميزات جديدة قبل الجميع',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Prix
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFECFDF5), Color(0xFFD1FAE5)],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '490 DA',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: widget.config.primaryDark,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' / mois',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: widget.config.primaryDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        t(
+                          'ou 4 900 DA / an (économisez 2 mois)',
+                          'أو 4900 دج / سنة (وفّر شهرين)',
+                        ),
+                        style: TextStyle(
+                            fontSize: 13, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await SettingsService.setPremium(true);
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      setState(() {});
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(t(
+                            '🎉 Bienvenue en Premium !',
+                            '🎉 مرحباً بك في Premium !',
+                          )),
+                          backgroundColor: widget.config.primaryColor,
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.config.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      t('Passer en Premium', 'الترقية إلى Premium'),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(
+                    t('Plus tard', 'لاحقاً'),
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _benefitRow(String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.check,
+                size: 14, color: widget.config.primaryColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 13, color: Colors.grey.shade600)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Build ───────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
@@ -96,82 +433,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, isAr, _) {
         String t(String fr, String ar) => isAr ? ar : fr;
         final isPremium = SettingsService.isPremium;
-        final nbVehicules = VehiculeService.getAll().length;
-        final primary = widget.config.primaryColor;
+        final vehicleCount = VehiculeService.getAll().length;
 
         return ScreenBackground(
-          // Pas de photo dédiée au profil pour l'instant : la catégorie
-          // "generique" retombe proprement sur le dégradé + icône en
-          // filigrane tant que assets/images/bg_generique.jpg n'existe pas.
           category: BackgroundCategory.generique,
-          accentColor: primary,
+          accentColor: widget.config.primaryColor,
           child: SafeArea(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
               children: [
-                Text(t('Profil', 'الملف الشخصي'),
-                    style: Theme.of(context).textTheme.headlineSmall),
+                Text(
+                  t('Profil', 'الملف الشخصي'),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
                 const SizedBox(height: 16),
 
-                // Carte statut du compte
+                // ── Carte statut compte ──────────────────────────────────
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFECFDF5), Color(0xFFD1FAE5)],
+                    ),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
                   ),
                   child: Row(
                     children: [
                       CircleAvatar(
-                        radius: 26,
-                        backgroundColor: primary,
-                        child: const Icon(Icons.person, color: Colors.white),
+                        radius: 28,
+                        backgroundColor: widget.config.primaryColor,
+                        child: const Icon(Icons.person,
+                            color: Colors.white, size: 30),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(widget.config.appName,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16)),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: isPremium
-                                        ? primary.withOpacity(0.15)
-                                        : Colors.black.withOpacity(0.06),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    isPremium
-                                        ? t('Compte Premium', 'حساب Premium')
-                                        : t('Compte gratuit', 'حساب مجاني'),
-                                    style: TextStyle(
-                                        color: isPremium
-                                            ? const Color(0xFF166534)
-                                            : Colors.black54,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12),
-                                  ),
+                            Text(
+                              widget.config.appName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 17,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isPremium
+                                    ? const Color(0xFFFBBF24)
+                                    : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                isPremium
+                                    ? t('Compte Premium', 'حساب Premium')
+                                    : t('Compte gratuit', 'حساب مجاني'),
+                                style: TextStyle(
+                                  color: isPremium
+                                      ? const Color(0xFF78350F)
+                                      : Colors.grey.shade700,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
                                 ),
-                              ],
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              nbVehicules > 1
-                                  ? t('$nbVehicules véhicules utilisés',
-                                      '$nbVehicules مركبات مستخدمة')
-                                  : t('$nbVehicules véhicule utilisé',
-                                      '$nbVehicules مركبة مستخدمة'),
-                              style: const TextStyle(
-                                  color: Colors.black54, fontSize: 13),
+                              vehicleCount <= 1
+                                  ? t(
+                                      '$vehicleCount véhicule utilisé',
+                                      vehicleCount == 1
+                                          ? 'مركبة واحدة مستخدمة'
+                                          : 'لا توجد مركبة',
+                                    )
+                                  : t(
+                                      '$vehicleCount véhicules utilisés',
+                                      '$vehicleCount مركبات مستخدمة',
+                                    ),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
                             ),
                           ],
                         ),
@@ -181,99 +530,301 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                _SectionHeader(t('Réglages', 'الإعدادات')),
-                const SizedBox(height: 8),
+                // ── Réglages ─────────────────────────────────────────────
+                Text(
+                  t('Réglages', 'الإعدادات'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
 
                 // Langue
-                _SettingsCard(
-                  icon: Icons.language,
-                  iconColor: primary,
-                  title: t('Langue', 'اللغة'),
-                  subtitle: isAr ? 'العربية' : 'Français',
-                  trailing: _LanguagePill(
-                    isAr: isAr,
-                    accent: primary,
-                    onChanged: (v) => widget.isAr.value = v,
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.language,
+                          color: widget.config.primaryColor, size: 20),
+                    ),
+                    title: Text(t('Langue', 'اللغة'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
+                    subtitle: Text(isAr ? 'العربية' : 'Français',
+                        style: const TextStyle(fontSize: 12.5)),
+                    trailing: SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(value: false, label: Text('FR')),
+                        ButtonSegment(value: true, label: Text('AR')),
+                      ],
+                      selected: {isAr},
+                      onSelectionChanged: (s) => widget.isAr.value = s.first,
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
                   ),
                 ),
-
-                // Type de véhicule (voiture / moto / les deux) : pilote
-                // quels onglets sont affichés dans l'app, choisi à
-                // l'onboarding et modifiable ici.
-                _SettingsCard(
-                  icon: Icons.directions_car,
-                  iconColor: const Color(0xFFEF4444),
-                  title: t('Type de véhicule', 'نوع المركبة'),
-                  subtitle: _vehicleProfileLabel(t),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: Colors.black38),
-                  onTap: () => _showVehicleProfilePicker(context, t),
-                ),
-
-                // Rappels SMS/Appel — reste cliquable même désactivée
-                // (compte non-Premium) pour guider vers l'upgrade au lieu
-                // d'un cul-de-sac silencieux.
-                _SettingsCard(
-                  icon: Icons.notifications_active_outlined,
-                  iconColor: const Color(0xFFF59E0B),
-                  title: t('Rappels par SMS / Appel',
-                      'تذكيرات عبر SMS / مكالمة'),
-                  subtitle: isPremium
-                      ? t('Bientôt disponible', 'قريباً')
-                      : t('Réservé aux comptes Premium',
-                          'حصري لحسابات Premium'),
-                  onTap: !isPremium
-                      ? () => _showPremiumComingSoon(context, t)
-                      : null,
-                  trailing: Switch(
-                    value: SettingsService.smsRemindersEnabled,
-                    activeColor: primary,
-                    onChanged: isPremium
-                        ? (val) async {
-                            await SettingsService.setSmsRemindersEnabled(val);
-                            setState(() {});
-                          }
-                        : null,
-                  ),
-                ),
-
-                if (!isPremium)
-                  _SettingsCard(
-                    icon: Icons.workspace_premium,
-                    iconColor: primary,
-                    title: t('Passer en Premium', 'الترقية إلى Premium'),
-                    subtitle: t('Véhicules illimités et rappels SMS/appel',
-                        'مركبات غير محدودة وتذكيرات SMS/مكالمة'),
-                    trailing:
-                        const Icon(Icons.chevron_right, color: Colors.black38),
-                    onTap: () => _showPremiumComingSoon(context, t),
-                  ),
-
-                const SizedBox(height: 24),
-                _SectionHeader(t('Support', 'الدعم')),
                 const SizedBox(height: 8),
 
-                _SettingsCard(
-                  icon: Icons.mail_outline,
-                  iconColor: Colors.black87,
-                  title: t('Contacter le support', 'التواصل مع الدعم'),
-                  trailing:
-                      const Icon(Icons.chevron_right, color: Colors.black38),
-                  onTap: _contactSupport,
+                // Type de véhicule
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.tune,
+                          color: widget.config.primaryColor, size: 20),
+                    ),
+                    title: Text(t('Type de véhicule', 'نوع المركبة'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
+                    subtitle: Text(_vehicleProfileLabel(t),
+                        style: const TextStyle(fontSize: 12.5)),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: Colors.grey),
+                    onTap: () => _showVehicleProfilePicker(context, t),
+                  ),
                 ),
-                _SettingsCard(
-                  icon: Icons.info_outline,
-                  iconColor: Colors.black87,
-                  title: t('À propos', 'حول التطبيق'),
-                  subtitle: t(
-                      '${widget.config.appName} — gestion véhicules & pièces détachées',
-                      '${widget.config.appName} — إدارة المركبات وقطع الغيار'),
-                  // Accès admin caché : appui long ici, invisible pour
-                  // les utilisateurs normaux et les magasins.
-                  onLongPress: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AdminLoginScreen(config: widget.config),
+                const SizedBox(height: 8),
+
+                // Rappels SMS / Appel
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: !isPremium
+                        ? () => _showPremiumSheet(context, t)
+                        : null,
+                    child: SwitchListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      secondary: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.notifications_active_outlined,
+                            color: widget.config.primaryColor, size: 20),
+                      ),
+                      title: Text(
+                        t('Rappels par SMS / Appel',
+                            'تذكيرات عبر SMS / مكالمة'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15),
+                      ),
+                      subtitle: Text(
+                        isPremium
+                            ? (SettingsService.smsRemindersEnabled
+                                ? t('Activés', 'مفعّلة')
+                                : t('Désactivés', 'معطّلة'))
+                            : t('Réservé aux comptes Premium',
+                                'حصري لحسابات Premium'),
+                        style: const TextStyle(fontSize: 12.5),
+                      ),
+                      value: SettingsService.smsRemindersEnabled,
+                      activeColor: widget.config.primaryColor,
+                      onChanged: isPremium
+                          ? (val) async {
+                              await SettingsService.setSmsRemindersEnabled(
+                                  val);
+                              setState(() {});
+                            }
+                          : null,
+                    ),
+                  ),
+                ),
+
+                // ── Carte Premium (si non Premium) ───────────────────────
+                if (!isPremium) ...[
+                  const SizedBox(height: 8),
+                  Card(
+                    elevation: 0,
+                    color: const Color(0xFF0F172A),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => _showPremiumSheet(context, t),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFFEF3C7),
+                                    Color(0xFFFDE68A)
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.workspace_premium,
+                                  color: Color(0xFFD97706), size: 22),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    t('Passer en Premium',
+                                        'الترقية إلى Premium'),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    t(
+                                      'Débloquez tout le potentiel de VROUM DZ',
+                                      'افتح كامل إمكانيات VROUM DZ',
+                                    ),
+                                    style: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      _premiumTag(t(
+                                          'Véhicules illimités',
+                                          'مركبات غير محدودة')),
+                                      _premiumTag(
+                                          t('Rappels SMS', 'تذكيرات SMS')),
+                                      _premiumTag(t('Support prioritaire',
+                                          'دعم ذو أولوية')),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+
+                // ── Support ──────────────────────────────────────────────
+                Text(
+                  t('Support', 'الدعم'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // WhatsApp + Email
+                Row(
+                  children: [
+                    Expanded(
+                      child: _supportButton(
+                        icon: Icons.chat,
+                        label: 'WhatsApp',
+                        color: const Color(0xFF25D366),
+                        onTap: _contactWhatsApp,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _supportButton(
+                        icon: Icons.mail_outline,
+                        label: 'Email',
+                        color: const Color(0xFF2563EB),
+                        onTap: _contactEmail,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // À propos
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.info_outline,
+                          color: Color(0xFF2563EB), size: 20),
+                    ),
+                    title: Text(t('À propos', 'حول التطبيق'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
+                    subtitle: Text(
+                      t(
+                        '${widget.config.appName} — gestion véhicules & pièces',
+                        '${widget.config.appName} — إدارة المركبات وقطع الغيار',
+                      ),
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: Colors.grey),
+                    // Accès admin caché
+                    onLongPress: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            AdminLoginScreen(config: widget.config),
+                      ),
                     ),
                   ),
                 ),
@@ -284,157 +835,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
     );
   }
-}
 
-/// En-tête de section : majuscules, espacement des lettres, gris discret.
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  const _SectionHeader(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label.toUpperCase(),
-      style: const TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 13,
-        letterSpacing: 0.6,
-        color: Colors.black54,
+  Widget _premiumTag(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0x26FBBF24),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFFFBBF24),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
-}
 
-/// Carte de réglage : icône dans un badge coloré, titre/sous-titre, trailing
-/// libre (chevron, switch, pilule...). Reprend le style des cartes du
-/// Portail pièces pour une cohérence visuelle dans toute l'app.
-class _SettingsCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
-
-  const _SettingsCard({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    this.onTap,
-    this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+  Widget _supportButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: iconColor, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15)),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(subtitle!,
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.black54)),
-                    ],
-                  ],
-                ),
-              ),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ],
-            ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.grey.shade200),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Pilule FR/AR pleine : le segment actif est rempli avec la couleur
-/// d'accent, l'autre reste transparent sur fond gris clair.
-class _LanguagePill extends StatelessWidget {
-  final bool isAr;
-  final Color accent;
-  final ValueChanged<bool> onChanged;
-
-  const _LanguagePill({
-    required this.isAr,
-    required this.accent,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F3F5),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _pillSegment('FR', !isAr, () => onChanged(false)),
-          _pillSegment('AR', isAr, () => onChanged(true)),
-        ],
-      ),
-    );
-  }
-
-  Widget _pillSegment(String label, bool active, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? accent : Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: active ? Colors.white : Colors.black54,
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 26),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
       ),

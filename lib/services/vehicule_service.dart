@@ -146,4 +146,20 @@ class SettingsService {
     await _box.put(_userLatKey, lat);
     await _box.put(_userLngKey, lng);
   }
+
+  // --- Offres (réponses de magasins) déjà consultées par l'acheteur ---
+  // Même principe que StoreService.seenRequestIds côté magasin : permet
+  // au badge "non lu" sur l'icône Mes demandes de redescendre à 0 une
+  // fois que l'acheteur a ouvert l'écran — voir buyer_portal_screen.dart.
+  static const String _seenOfferIdsKey = 'seenOfferIds';
+
+  static Set<String> get seenOfferIds =>
+      (_box.get(_seenOfferIdsKey) as List?)?.cast<String>().toSet() ?? {};
+
+  static Future<void> markOffersSeen(Iterable<String> offerIds) async {
+    final nouveaux = offerIds.toSet();
+    if (nouveaux.isEmpty) return;
+    final merged = {...seenOfferIds, ...nouveaux}.toList();
+    await _box.put(_seenOfferIdsKey, merged);
+  }
 }

@@ -39,16 +39,25 @@ class PartsPortalScreen extends StatelessWidget {
               _t('Choisis ton profil pour continuer.', 'اختر ملفك للمتابعة.'),
               style: const TextStyle(color: Colors.black54),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 8),
+            Text(
+              _t('Particulier → Acheteur  •  Magasin → Vendeur',
+                  'فرد → مشترٍ  •  متجر → بائع'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 20),
+            // Carte Acheteur mise en avant : c'est le parcours du grand
+            // public, elle doit sauter aux yeux en premier.
             _PortalCard(
               icon: Icons.camera_alt_outlined,
-              title: _t('Portail acheteur', 'بوابة المشتري'),
+              title: _t('Je cherche une pièce', 'أبحث عن قطعة'),
               subtitle: _t(
-                'Photographie ta pièce cassée, obtiens la référence et '
-                'diffuse ta demande aux magasins.',
-                'صوّر القطعة المكسورة، احصل على المرجع وأرسل طلبك للمتاجر.',
+                'Photographie ta pièce cassée → on trouve la référence et '
+                'on envoie ta demande aux magasins.',
+                'صوّر القطعة المكسورة → نجد المرجع ونرسل طلبك للمتاجر.',
               ),
               color: config.primaryColor,
+              highlighted: true,
               onTap: () async {
                 await MarketplaceService.loadPhoneAsId();
                 if (!context.mounted) return;
@@ -62,14 +71,33 @@ class PartsPortalScreen extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                children: [
+                  Expanded(child: Divider(color: Colors.grey.shade300)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(_t('ou', 'أو'),
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade500)),
+                  ),
+                  Expanded(child: Divider(color: Colors.grey.shade300)),
+                ],
+              ),
+            ),
+            // Carte Vendeur : reste accessible et bien visible (l'inscription
+            // magasin doit rester en libre-service), simplement moins mise
+            // en avant visuellement que la carte Acheteur — le badge
+            // "Professionnel" suffit à orienter le bon public.
             _PortalCard(
               icon: Icons.storefront_outlined,
-              title: _t('Portail vendeur — Espace magasin', 'بوابة البائع'),
+              title: _t('Espace magasin', 'فضاء المتجر'),
+              proBadge: _t('Professionnel', 'مهني'),
               subtitle: _t(
-                'Réservé aux magasins : reçois les commandes des clients, '
-                'réponds avec ton prix, gère ton abonnement.',
-                'مخصص للمتاجر: استقبل الطلبات، أجب بالسعر، أدر اشتراكك.',
+                'Reçois les demandes des clients, propose ton prix et '
+                'gère ton abonnement.',
+                'استقبل طلبات العملاء، اقترح سعرك وأدر اشتراكك.',
               ),
               color: Colors.black87,
               onTap: () async {
@@ -99,6 +127,8 @@ class _PortalCard extends StatelessWidget {
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
+  final bool highlighted;
+  final String? proBadge;
 
   const _PortalCard({
     required this.icon,
@@ -106,54 +136,100 @@ class _PortalCard extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.onTap,
+    this.highlighted = false,
+    this.proBadge,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
+    return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade300),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+          decoration: BoxDecoration(
+            color: highlighted ? color.withOpacity(0.06) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: highlighted ? color.withOpacity(0.4) : Colors.grey.shade300,
+              width: highlighted ? 1.4 : 1,
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(highlighted ? 0.10 : 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
-              child: Icon(icon, color: color, size: 30),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Barre d'accent en haut : signale visuellement la carte mise
+              // en avant sans avoir besoin d'un fond sombre comme la maquette.
+              if (highlighted)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Container(height: 3, decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  )),
+                ),
+              Row(
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text(subtitle,
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.black54)),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: color, size: 30),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(title,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16)),
+                            ),
+                            if (proBadge != null) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(proBadge!,
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade700)),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(subtitle,
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.black54)),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right,
+                      color: highlighted ? color : Colors.black38),
                 ],
               ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.black38),
-          ],
+            ],
+          ),
         ),
       ),
     );

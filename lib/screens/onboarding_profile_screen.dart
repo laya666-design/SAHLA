@@ -55,6 +55,59 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
         return Directionality(
           textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
+            // Même bandeau logo que le reste de l'app (voir home_screen.dart)
+            // : cet écran d'onboarding est le tout premier vu par
+            // l'utilisateur, il doit porter le logo VROUM DZ comme les autres.
+            appBar: AppBar(
+              backgroundColor: widget.config.primaryColor,
+              foregroundColor: Colors.black,
+              toolbarHeight: 96,
+              titleSpacing: 0,
+              automaticallyImplyLeading: false,
+              flexibleSpace: ClipRect(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      'assets/images/logo_header.png',
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (context, error, stack) => Container(
+                        color: widget.config.primaryColor,
+                        alignment: Alignment.center,
+                        child: Text(widget.config.appName,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w800)),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 4,
+                      left: 12,
+                      child: Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        elevation: 3,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => widget.isAr.value = !isAr,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            child: Text(
+                              isAr ? 'FR' : 'AR',
+                              style: TextStyle(
+                                  color: widget.config.primaryColor,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             body: ScreenBackground(
               category: BackgroundCategory.generique,
               accentColor: widget.config.primaryColor,
@@ -64,18 +117,6 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Align(
-                        alignment: Alignment.topRight,
-                        child: TextButton(
-                          onPressed: () => widget.isAr.value = !isAr,
-                          child: Text(
-                            isAr ? 'FR' : 'AR',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87),
-                          ),
-                        ),
-                      ),
                       const Spacer(),
                       Text(
                         t('Qu\'est-ce que tu conduis ?', 'ماذا تقود؟'),

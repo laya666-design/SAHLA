@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'vehicule.dart';
+import '../models/user_role.dart';
 
 /// Stockage 100% local (Hive) — pas de backend, cohérent avec l'OCR qui
 /// fonctionne déjà hors-ligne. Un seul véhicule gratuit ; au-delà, il faut
@@ -161,5 +162,18 @@ class SettingsService {
     if (nouveaux.isEmpty) return;
     final merged = {...seenOfferIds, ...nouveaux}.toList();
     await _box.put(_seenOfferIdsKey, merged);
+  }
+
+  // --- Rôle utilisateur (conducteur / magasin / dépanneuse) ---
+  // Choisi une seule fois au premier lancement. 1 compte = 1 rôle.
+  static const String _userRoleKey = 'userRole';
+
+  static UserRole? get userRole =>
+      UserRole.fromStorage(_box.get(_userRoleKey) as String?);
+
+  static bool get hasChosenRole => userRole != null;
+
+  static Future<void> setUserRole(UserRole role) async {
+    await _box.put(_userRoleKey, role.storageValue);
   }
 }

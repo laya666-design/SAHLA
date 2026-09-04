@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/store_service.dart';
 import 'store_dashboard_screen.dart';
+import 'magasin_shell_screen.dart';
 
 /// Affiché une seule fois, juste après la toute première connexion par
 /// téléphone : le compte existe déjà (créé avec `actif: false`), il ne
@@ -42,7 +43,7 @@ class _StoreCompleteProfileScreenState
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => StoreDashboardScreen(config: widget.config),
+          builder: (_) => MagasinShellScreen(config: widget.config),
         ),
       );
     } catch (e) {

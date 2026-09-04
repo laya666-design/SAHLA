@@ -3,6 +3,7 @@ import '../../config/app_config.dart';
 import '../../config/wilayas.dart';
 import '../../services/sos_service.dart';
 import 'depanneuse_dashboard_screen.dart';
+import 'depanneuse_shell_screen.dart';
 
 /// Connexion / inscription dépanneuse — accès caché (appui long sur le
 /// bouton SOS), même mécanisme téléphone + mot de passe que l'Espace Pro
@@ -74,7 +75,7 @@ class _DepanneuseAuthScreenState extends State<DepanneuseAuthScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => DepanneuseDashboardScreen(config: widget.config),
+          builder: (_) => DepanneuseShellScreen(config: widget.config),
         ),
       );
     } catch (e) {

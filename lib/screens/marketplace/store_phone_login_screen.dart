@@ -3,6 +3,7 @@ import '../../config/app_config.dart';
 import '../../services/store_service.dart';
 import 'store_complete_profile_screen.dart';
 import 'store_dashboard_screen.dart';
+import 'magasin_shell_screen.dart';
 import 'store_login_screen.dart';
 import 'widgets/reset_password_email_dialog.dart';
 
@@ -74,7 +75,7 @@ class _StorePhoneLoginScreenState extends State<StorePhoneLoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => StoreDashboardScreen(config: widget.config),
+            builder: (_) => MagasinShellScreen(config: widget.config),
           ),
         );
       }

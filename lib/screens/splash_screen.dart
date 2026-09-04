@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../config/app_config.dart';
+import '../models/user_role.dart';
+import '../services/vehicule_service.dart';
 import 'home_screen.dart';
 import 'onboarding_profile_screen.dart';
-import '../services/vehicule_service.dart';
+import 'role_selection_screen.dart';
+import 'marketplace/magasin_shell_screen.dart';
+import 'sos/depanneuse_shell_screen.dart';
 
 /// Splash plein écran avec la roue qui tourne (VROUM).
-/// Joue la vidéo une fois, puis passe automatiquement à l'app normale.
+/// Puis route selon le rôle (ou RoleSelectionScreen au premier lancement).
 class SplashScreen extends StatefulWidget {
   final AppConfig config;
   final ValueNotifier<bool> isAr;
@@ -34,18 +38,13 @@ class _SplashScreenState extends State<SplashScreen> {
         if (!mounted) return;
         setState(() => _initialized = true);
         _controller.setLooping(false);
-        _controller.setVolume(0); // silencieux
+        _controller.setVolume(0);
         _controller.play();
-
-        // Dès que la vidéo se termine → on passe à l'app
         _controller.addListener(_onVideoUpdate);
       }).catchError((e) {
-        // Si la vidéo échoue, on passe directement à l'app
         _goToApp();
       });
 
-    // Sécurité : on ne reste jamais bloqué plus de 8 secondes
-    // (la vidéo VROUM fait ~6 s)
     Future.delayed(const Duration(seconds: 8), _goToApp);
   }
 
@@ -60,29 +59,50 @@ class _SplashScreenState extends State<SplashScreen> {
     if (_navigated || !mounted) return;
     _navigated = true;
 
-    final profileChosen = SettingsService.hasChosenVehicleProfile;
-
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => profileChosen
-            ? HomeScreen(config: widget.config, isAr: widget.isAr)
-            : OnboardingProfileScreen(
-                config: widget.config,
-                isAr: widget.isAr,
-                // La navigation vers l'accueil est faite par
-                // OnboardingProfileScreen lui-même (avec son propre
-                // context, toujours valide) : ce SplashScreen aura déjà
-                // été détruit par le pushReplacement ci-dessus au moment
-                // où l'utilisateur appuie sur "Continuer", donc on ne
-                // doit plus naviguer depuis ici (voir onboarding_profile_screen.dart).
-                onChosen: (value) => SettingsService.setVehicleProfile(value),
-              ),
+        pageBuilder: (_, __, ___) => _resolveNextScreen(),
         transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);
         },
       ),
     );
+  }
+
+  Widget _resolveNextScreen() {
+    final role = SettingsService.userRole;
+
+    if (role == null) {
+      return RoleSelectionScreen(
+        config: widget.config,
+        isAr: widget.isAr,
+      );
+    }
+
+    switch (role) {
+      case UserRole.conducteur:
+        if (!SettingsService.hasChosenVehicleProfile) {
+          return OnboardingProfileScreen(
+            config: widget.config,
+            isAr: widget.isAr,
+            onChosen: (value) => SettingsService.setVehicleProfile(value),
+          );
+        }
+        return HomeScreen(config: widget.config, isAr: widget.isAr);
+
+      case UserRole.magasin:
+        return MagasinShellScreen(
+          config: widget.config,
+          isAr: widget.isAr.value,
+        );
+
+      case UserRole.depanneuse:
+        return DepanneuseShellScreen(
+          config: widget.config,
+          isAr: widget.isAr.value,
+        );
+    }
   }
 
   @override
@@ -113,4 +133,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-

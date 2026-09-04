@@ -130,19 +130,20 @@ class SettingsService {
     await _box.put(_userTelKey, value);
   }
 
-  // --- Réponses de magasins déjà vues (badge "Mes demandes") ---
-  // Persisté localement : le badge du Portail acheteur ne compte que les
-  // réponses jamais consultées, et se vide dès que l'utilisateur ouvre
-  // "Mes demandes" (voir buyer_portal_screen.dart).
-  static const String _seenOfferIdsKey = 'seenOfferIds';
+  // --- Position GPS de l'utilisateur ---
+  // Best-effort : demandée à l'onboarding pour les fonctionnalités de
+  // proximité (magasins/dépanneuses les plus proches), jamais bloquante
+  // si l'utilisateur refuse la permission — voir LocationService.
+  static const String _userLatKey = 'userLat';
+  static const String _userLngKey = 'userLng';
 
-  static Set<String> get seenOfferIds =>
-      ((_box.get(_seenOfferIdsKey, defaultValue: const <String>[]) as List)
-          .map((e) => e.toString())
-          .toSet());
+  static double? get userLat => _box.get(_userLatKey) as double?;
+  static double? get userLng => _box.get(_userLngKey) as double?;
 
-  static Future<void> markOffersSeen(Iterable<String> offerIds) async {
-    final current = seenOfferIds..addAll(offerIds);
-    await _box.put(_seenOfferIdsKey, current.toList());
+  static bool get hasUserPosition => userLat != null && userLng != null;
+
+  static Future<void> setUserPosition(double lat, double lng) async {
+    await _box.put(_userLatKey, lat);
+    await _box.put(_userLngKey, lng);
   }
 }

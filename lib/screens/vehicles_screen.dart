@@ -537,10 +537,24 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
             const SizedBox(height: 4),
             Text(_sousTitre, style: const TextStyle(color: Colors.black54)),
             const SizedBox(height: 12),
+            const AdBanner(),
+            const SizedBox(height: 4),
             if (_vehicules.isEmpty)
-              _buildEmptyState(context)
-            else ...[
-              ..._vehicules.map((v) => Card(
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(widget.iconePrincipale,
+                          size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 8),
+                      Text(_labelVide,
+                          style: const TextStyle(color: Colors.black54)),
+                    ],
+                  ),
+                ),
+              ),
+            ..._vehicules.map((v) => Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
                     contentPadding: const EdgeInsets.only(
@@ -596,160 +610,30 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                     onTap: () => _openVehicle(v),
                   ),
                 )),
-              // Pub affichée uniquement s'il y a déjà au moins un véhicule
-              // (jamais sur un écran vide) — placée après la liste plutôt
-              // qu'en haut, pour rester discrète.
-              const SizedBox(height: 4),
-              const AdBanner(),
-              const SizedBox(height: 8),
-              if (showLockedCard)
-                Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading:
-                        Icon(Icons.lock, color: widget.config.primaryColor),
-                    title: Text(_t('Ajouter un autre véhicule',
-                        'إضافة مركبة أخرى')),
-                    subtitle: Text(_t('Passe en Premium pour continuer',
-                        'قم بالترقية إلى Premium للمتابعة')),
-                    onTap: _showPremiumSheet,
-                  ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: OutlinedButton.icon(
-                    onPressed: _ajouterVehiculeViaScan,
-                    icon: const Icon(Icons.add),
-                    label: Text(_labelAjout),
-                  ),
+            if (showLockedCard)
+              Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: Icon(Icons.lock, color: widget.config.primaryColor),
+                  title: Text(_t('Ajouter un autre véhicule',
+                      'إضافة مركبة أخرى')),
+                  subtitle: Text(_t('Passe en Premium pour continuer',
+                      'قم بالترقية إلى Premium للمتابعة')),
+                  onTap: _showPremiumSheet,
                 ),
-            ],
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: OutlinedButton.icon(
+                  onPressed: _ajouterVehiculeViaScan,
+                  icon: const Icon(Icons.add),
+                  label: Text(_labelAjout),
+                ),
+              ),
           ],
         ),
       ),
-      ),
-    );
-  }
-
-  /// Empty state enrichi : icône, message, bénéfices concrets et CTA
-  /// principal — remplace l'ancien état vide minimal (icône + texte gris).
-  Widget _buildEmptyState(BuildContext context) {
-    final benefits = <(IconData, String)>[
-      (
-        Icons.shield_outlined,
-        _t('Suivi de l\'assurance & alertes d\'expiration',
-            'متابعة التأمين وتنبيهات انتهاء الصلاحية'),
-      ),
-      (
-        Icons.fact_check_outlined,
-        _t('Contrôle technique à jour', 'الفحص التقني محدّث'),
-      ),
-      (
-        Icons.support_agent,
-        _t('SOS dépanneuse en 1 clic', 'نجدة المصلح بضغطة واحدة'),
-      ),
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              color: widget.config.primaryColor.withOpacity(0.12),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: widget.config.primaryColor.withOpacity(0.3),
-                width: 1.5,
-              ),
-            ),
-            child: Icon(widget.iconePrincipale,
-                size: 34, color: widget.config.primaryColor),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _labelVide,
-            style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _t('Ajoute ton véhicule en scannant la carte grise.\nTout est suivi automatiquement.',
-                'أضف مركبتك بمسح البطاقة الرمادية.\nكل شيء يُتابع تلقائيًا.'),
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
-          ),
-          const SizedBox(height: 22),
-          Column(
-            children: benefits
-                .map((b) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: widget.config.primaryColor
-                                    .withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(b.$1,
-                                  size: 18, color: widget.config.primaryColor),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(b.$2,
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.black87)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _ajouterVehiculeViaScan,
-              style: FilledButton.styleFrom(
-                backgroundColor: widget.config.primaryColor,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_t('📷 Scanner ma carte grise', '📷 امسح البطاقة الرمادية'),
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(
-                    _t('Ajout en moins de 10 secondes', 'الإضافة في أقل من 10 ثوانٍ'),
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.white.withOpacity(0.85)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

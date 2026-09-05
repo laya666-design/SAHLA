@@ -3,14 +3,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
 import '../../services/sos_models.dart';
 import '../../services/sos_service.dart';
+import '../../services/vehicule.dart';
 import '../../theme/app_theme.dart';
-import '../rappels_screen.dart';
 import '../role_router.dart';
+import '../vehicles_screen.dart';
 import 'depanneuse_auth_screen.dart';
 import 'depanneuse_dashboard_screen.dart';
 
 /// Portail Dépanneuse :
-/// Alertes · Historique · Rappels · Profil — pas de bouton SOS.
+/// Alertes · Historique · Rappels (véhicule de dépannage : assurance/CT) ·
+/// Profil — pas de bouton SOS.
 class DepanneuseShellScreen extends StatefulWidget {
   final AppConfig config;
   final bool isAr;
@@ -73,10 +75,24 @@ class _DepanneuseShellScreenState extends State<DepanneuseShellScreen> {
     final screens = [
       DepanneuseDashboardScreen(config: widget.config),
       _HistoriqueTab(config: widget.config, isAr: widget.isAr),
-      RappelsScreen(
+      // Rappels = le véhicule de dépannage (assurance/CT), même écran
+      // que côté conducteur.
+      VehiclesScreen(
         config: widget.config,
         isAr: widget.isAr,
-        roleLabel: 'dépanneuse',
+        types: const [
+          TypeVehicule.voiture,
+          TypeVehicule.moto,
+          TypeVehicule.scooter,
+        ],
+        titre: 'Mon véhicule',
+        titreAr: 'مركبتي',
+        sousTitre: 'Assurance et contrôle technique de ton véhicule.',
+        sousTitreAr: 'التأمين والفحص التقني لمركبتك.',
+        labelAjout: 'Ajouter mon véhicule',
+        labelAjoutAr: 'إضافة مركبتي',
+        labelVide: 'Aucun véhicule enregistré pour le moment',
+        labelVideAr: 'لا توجد مركبة مسجلة حتى الآن',
       ),
       _DepanneuseProfilTab(
         config: widget.config,
@@ -240,25 +256,6 @@ class _DepanneuseProfilTab extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: config.sosColor.withValues(alpha: 0.12),
-                child: Icon(Icons.local_shipping, color: config.sosColor),
-              ),
-              title: Text(
-                t('Espace Assistance', 'فضاء المساعدة'),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(
-                t(
-                  'Tu reçois les alertes SOS de ta wilaya. Pas d’envoi SOS depuis ce compte.',
-                  'تستقبل تنبيهات الاستغاثة في ولايتك. لا إرسال SOS من هذا الحساب.',
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           Card(
             child: ListTile(
               leading: CircleAvatar(

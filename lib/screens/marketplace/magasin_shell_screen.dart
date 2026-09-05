@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/store_service.dart';
+import '../../services/vehicule.dart';
 import '../../services/vehicule_service.dart';
 import '../../theme/app_theme.dart';
-import '../rappels_screen.dart';
 import '../sos/tel_picker_dialog.dart';
 import '../sos/wilaya_picker_dialog.dart';
 import '../sos/sos_alert_sent_screen.dart';
 import '../../services/sos_service.dart';
 import '../role_router.dart';
+import '../vehicles_screen.dart';
 import 'store_dashboard_screen.dart';
 import 'store_login_screen.dart';
 
 /// Portail Magasin avec navigation :
-/// Demandes · Rappels · Profil + SOS discret.
+/// Demandes · Rappels (véhicule perso : assurance/CT) · Profil + SOS discret.
 class MagasinShellScreen extends StatefulWidget {
   final AppConfig config;
   final bool isAr;
@@ -145,10 +146,24 @@ class _MagasinShellScreenState extends State<MagasinShellScreen> {
     final screens = [
       // Demandes = dashboard magasin existant
       StoreDashboardScreen(config: widget.config),
-      RappelsScreen(
+      // Rappels = le véhicule perso du magasin (assurance/CT), même écran
+      // que côté conducteur — utile pour la camionnette/voiture du magasin.
+      VehiclesScreen(
         config: widget.config,
         isAr: widget.isAr,
-        roleLabel: 'magasin',
+        types: const [
+          TypeVehicule.voiture,
+          TypeVehicule.moto,
+          TypeVehicule.scooter,
+        ],
+        titre: 'Mon véhicule',
+        titreAr: 'مركبتي',
+        sousTitre: 'Assurance et contrôle technique de ton véhicule.',
+        sousTitreAr: 'التأمين والفحص التقني لمركبتك.',
+        labelAjout: 'Ajouter mon véhicule',
+        labelAjoutAr: 'إضافة مركبتي',
+        labelVide: 'Aucun véhicule enregistré pour le moment',
+        labelVideAr: 'لا توجد مركبة مسجلة حتى الآن',
       ),
       _MagasinProfilTab(
         config: widget.config,
@@ -213,25 +228,6 @@ class _MagasinProfilTab extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: config.enchereColor.withValues(alpha: 0.15),
-                child: Icon(Icons.storefront, color: config.enchereColor),
-              ),
-              title: Text(
-                t('Espace Magasin', 'فضاء المحل'),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(
-                t(
-                  'Gère tes demandes, ton abonnement et tes rappels.',
-                  'أدر طلباتك واشتراكك وتذكيراتك.',
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           // SOS discret
           Card(
             child: ListTile(

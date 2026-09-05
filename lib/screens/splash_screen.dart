@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../config/app_config.dart';
-import 'home_screen.dart';
-import 'onboarding_profile_screen.dart';
+import 'role_selection_screen.dart';
 import '../services/vehicule_service.dart';
 
 /// Splash plein écran avec la roue qui tourne (VROUM).
@@ -56,27 +55,29 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
-  void _goToApp() {
+  Future<void> _goToApp() async {
     if (_navigated || !mounted) return;
     _navigated = true;
 
-    final profileChosen = SettingsService.hasChosenVehicleProfile;
+    // Avant l'onboarding véhicule : d'abord savoir QUI ouvre l'app
+    // (conducteur / magasin / dépanneuse). Une fois le rôle choisi,
+    // RoleRouter centralise "quel écran pour ce rôle" — voir
+    // role_selection_screen.dart. Ça évite de dupliquer cette logique
+    // ici et dans RoleSelectionScreen.
+    Widget next;
+    if (!SettingsService.hasChosenRole) {
+      next = RoleSelectionScreen(config: widget.config, isAr: widget.isAr);
+    } else {
+      next = await RoleRouter.resolve(
+        config: widget.config,
+        isAr: widget.isAr,
+      );
+      if (!mounted) return;
+    }
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => profileChosen
-            ? HomeScreen(config: widget.config, isAr: widget.isAr)
-            : OnboardingProfileScreen(
-                config: widget.config,
-                isAr: widget.isAr,
-                // La navigation vers l'accueil est faite par
-                // OnboardingProfileScreen lui-même (avec son propre
-                // context, toujours valide) : ce SplashScreen aura déjà
-                // été détruit par le pushReplacement ci-dessus au moment
-                // où l'utilisateur appuie sur "Continuer", donc on ne
-                // doit plus naviguer depuis ici (voir onboarding_profile_screen.dart).
-                onChosen: (value) => SettingsService.setVehicleProfile(value),
-              ),
+        pageBuilder: (_, __, ___) => next,
         transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);

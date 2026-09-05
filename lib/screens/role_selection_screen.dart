@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../models/user_role.dart';
 import '../theme/app_theme.dart';
+import 'admin/admin_login_screen.dart';
 import 'role_router.dart';
 
 /// Écran obligatoire au premier lancement.
@@ -20,6 +21,13 @@ class RoleSelectionScreen extends StatelessWidget {
     // Toute la logique "quel écran pour quel rôle" vit dans RoleRouter,
     // partagée avec SplashScreen — jamais dupliquée ici.
     await RoleRouter.selectRole(context, role: role, config: config, isAr: isAr);
+  }
+
+  void _openAdmin(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AdminLoginScreen(config: config)),
+    );
   }
 
   @override
@@ -41,16 +49,53 @@ class RoleSelectionScreen extends StatelessWidget {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          config.appName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -0.3,
+                        // Logo VROUM DZ. Appui long sur la roue (centre du
+                        // logo) = accès admin caché, avant même d'avoir
+                        // choisi un profil.
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: AspectRatio(
+                              aspectRatio: 1568 / 565,
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.asset(
+                                    'assets/images/logo_header.png',
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stack) =>
+                                        Container(
+                                      color: Colors.black,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        config.appName,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Zone invisible pile sur la roue du logo.
+                                  Align(
+                                    alignment: const Alignment(-0.06, 0.0),
+                                    child: FractionallySizedBox(
+                                      widthFactor: 0.24,
+                                      heightFactor: 0.85,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onLongPress: () => _openAdmin(context),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 12),
                         TextButton(
                           onPressed: () => isAr.value = !isAr.value,
                           style: TextButton.styleFrom(
@@ -119,9 +164,8 @@ class RoleSelectionScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 14),
                           _RoleCard(
-                            icon: Icons.local_shipping_rounded,
+                            iconImage: 'assets/images/icon_depanneuse.png',
                             iconBg: const Color(0xFFFEE2E2),
-                            iconColor: config.sosColor,
                             title: t('Dépanneuse', 'سطحّة'),
                             subtitle: t(
                               'Recevoir les alertes SOS et gérer mes interventions',
@@ -158,23 +202,25 @@ class RoleSelectionScreen extends StatelessWidget {
 }
 
 class _RoleCard extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final String? iconImage;
   final Color iconBg;
-  final Color iconColor;
+  final Color? iconColor;
   final String title;
   final String subtitle;
   final Color accent;
   final VoidCallback onTap;
 
   const _RoleCard({
-    required this.icon,
+    this.icon,
+    this.iconImage,
     required this.iconBg,
-    required this.iconColor,
+    this.iconColor,
     required this.title,
     required this.subtitle,
     required this.accent,
     required this.onTap,
-  });
+  }) : assert(icon != null || iconImage != null);
 
   @override
   Widget build(BuildContext context) {
@@ -202,11 +248,14 @@ class _RoleCard extends StatelessWidget {
               Container(
                 width: 56,
                 height: 56,
+                padding: iconImage != null ? const EdgeInsets.all(9) : null,
                 decoration: BoxDecoration(
                   color: iconBg,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(icon, color: iconColor, size: 28),
+                child: iconImage != null
+                    ? Image.asset(iconImage!, fit: BoxFit.contain)
+                    : Icon(icon, color: iconColor, size: 28),
               ),
               const SizedBox(width: 14),
               Expanded(

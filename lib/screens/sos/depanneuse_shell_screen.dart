@@ -256,6 +256,27 @@ class _DepanneuseProfilTab extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Abonnement / paiements — pas encore de modèle payant défini
+          // pour les dépanneuses (contrairement au magasin qui a déjà
+          // son système). Carte visible mais désactivée en attendant.
+          Card(
+            child: ListTile(
+              enabled: false,
+              leading: CircleAvatar(
+                backgroundColor: Colors.grey.shade100,
+                child: const Icon(Icons.workspace_premium_outlined,
+                    color: Colors.black38),
+              ),
+              title: Text(
+                t('Abonnement & forfaits', 'الاشتراك والباقات'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                t('Bientôt disponible', 'قريباً'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Card(
             child: ListTile(
               leading: CircleAvatar(

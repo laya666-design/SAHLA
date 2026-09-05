@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
+import '../../services/marketplace_models.dart';
 import '../../services/store_service.dart';
 import '../../services/vehicule.dart';
 import '../../services/vehicule_service.dart';
@@ -12,6 +13,7 @@ import '../role_router.dart';
 import '../vehicles_screen.dart';
 import 'store_dashboard_screen.dart';
 import 'store_login_screen.dart';
+import 'subscription_screen.dart';
 
 /// Portail Magasin avec navigation :
 /// Demandes · Rappels (véhicule perso : assurance/CT) · Profil + SOS discret.
@@ -254,6 +256,46 @@ class _MagasinProfilTab extends StatelessWidget {
                   : Icon(Icons.chevron_right, color: config.sosColor),
               onTap: sosEnCours ? null : onSos,
             ),
+          ),
+          const SizedBox(height: 12),
+          // Abonnement / paiements — réutilise l'écran existant
+          // (forfaits, historique de paiement, Chargily/virement).
+          StreamBuilder<StoreProfile?>(
+            stream: StoreService.myProfileStream(),
+            builder: (context, snap) {
+              final profile = snap.data;
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: config.enchereColor.withValues(alpha: 0.15),
+                    child: Icon(Icons.workspace_premium_outlined,
+                        color: config.enchereColor),
+                  ),
+                  title: Text(
+                    t('Abonnement & forfaits', 'الاشتراك والباقات'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    profile == null
+                        ? t('Chargement…', 'جارٍ التحميل…')
+                        : t(
+                            'Paiements, forfait en cours et renouvellement.',
+                            'المدفوعات، الباقة الحالية والتجديد.',
+                          ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: profile == null
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SubscriptionScreen(
+                                  config: config, profile: profile),
+                            ),
+                          ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           Card(

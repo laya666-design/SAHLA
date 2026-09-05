@@ -141,7 +141,12 @@ class _DepanneuseAuthScreenState extends State<DepanneuseAuthScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 12),
-                    Icon(Icons.local_shipping_rounded, size: 48, color: sos),
+                    Image.asset(
+                      'assets/images/icon_depanneuse.png',
+                      height: 56,
+                      errorBuilder: (context, error, stack) =>
+                          Icon(Icons.local_shipping_rounded, size: 48, color: sos),
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'Espace Dépanneuse',

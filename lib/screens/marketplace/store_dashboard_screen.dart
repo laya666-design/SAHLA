@@ -11,7 +11,6 @@ import '../../services/marketplace_models.dart';
 import '../../services/notification_service.dart';
 import '../../services/store_service.dart';
 import '../../widgets/screen_background.dart';
-import '../role_selection_screen.dart';
 import 'store_phone_login_screen.dart';
 import 'subscription_screen.dart';
 
@@ -217,25 +216,6 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
       context,
       MaterialPageRoute(
           builder: (_) => StorePhoneLoginScreen(config: widget.config)),
-    );
-  }
-
-  // Regroupe déconnexion + changement de profil : évite d'ajouter un
-  // 5e IconButton sur un appbar qui en a déjà 4 en largeur limitée.
-  Widget _menuCompte() {
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert),
-      onSelected: (value) {
-        if (value == 'switch_role') {
-          RoleRouter.changerDeProfil(context);
-        } else if (value == 'logout') {
-          _logout();
-        }
-      },
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 'switch_role', child: Text('Changer de profil')),
-        PopupMenuItem(value: 'logout', child: Text('Déconnexion')),
-      ],
     );
   }
 
@@ -792,7 +772,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
               backgroundColor: widget.config.primaryColor,
               foregroundColor: Colors.white,
               title: const Text('Espace Pro'),
-              actions: [_menuCompte()],
+              actions: [IconButton(onPressed: _logout, icon: const Icon(Icons.logout))],
             ),
             body: Center(
               child: Padding(
@@ -881,7 +861,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                   icon: const Icon(Icons.checklist),
                   onPressed: _toggleSelectionMode,
                 ),
-                _menuCompte(),
+                IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
               ],
             ],
           ),

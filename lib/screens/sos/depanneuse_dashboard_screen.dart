@@ -3,9 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_config.dart';
 import '../../services/sos_models.dart';
 import '../../services/sos_service.dart';
-import '../role_selection_screen.dart';
 import 'depanneuse_alert_accepted_screen.dart';
-import 'depanneuse_auth_screen.dart';
 
 /// Tableau de bord dépanneuse : liste des alertes SOS ouvertes dans sa
 /// wilaya, avec bouton "J'y vais" pour accepter (affiche alors le
@@ -50,35 +48,7 @@ class _DepanneuseDashboardScreenState
   Future<void> _logout() async {
     await SosService.signOut();
     if (!mounted) return;
-    // Avant : popUntil((r) => r.isFirst), qui remontait vers HomeScreen
-    // quand ce dashboard était forcément ouvert depuis le portail
-    // conducteur. Ce n'est plus garanti (accès direct au rôle
-    // dépanneuse dès le splash) — on retourne donc explicitement à
-    // l'écran de connexion dépanneuse, comme le fait déjà le magasin.
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-          builder: (_) => DepanneuseAuthScreen(config: widget.config)),
-    );
-  }
-
-  // Regroupe déconnexion + changement de profil : évite d'ajouter un
-  // 2e IconButton sur un appbar déjà étroit.
-  Widget _menuCompte() {
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert),
-      onSelected: (value) {
-        if (value == 'switch_role') {
-          RoleRouter.changerDeProfil(context);
-        } else if (value == 'logout') {
-          _logout();
-        }
-      },
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 'switch_role', child: Text('Changer de profil')),
-        PopupMenuItem(value: 'logout', child: Text('Déconnexion')),
-      ],
-    );
+    Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
   // Alertes en cours d'acceptation : désactive le bouton pendant l'appel
@@ -130,7 +100,13 @@ class _DepanneuseDashboardScreenState
         backgroundColor: sos,
         foregroundColor: Colors.white,
         title: const Text('Alertes SOS'),
-        actions: [_menuCompte()],
+        actions: [
+          IconButton(
+            tooltip: 'Déconnexion',
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+          ),
+        ],
       ),
       body: StreamBuilder<DepanneuseProfile?>(
         stream: _profileStream,

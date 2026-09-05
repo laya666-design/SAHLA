@@ -1,78 +1,12 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
-import '../main.dart';
-import '../services/sos_service.dart';
-import '../services/store_service.dart';
-import '../services/vehicule_service.dart';
-import 'home_screen.dart';
-import 'marketplace/store_dashboard_screen.dart';
-import 'marketplace/store_phone_login_screen.dart';
-import 'onboarding_profile_screen.dart';
-import 'sos/depanneuse_auth_screen.dart';
-import 'sos/depanneuse_dashboard_screen.dart';
+import '../models/user_role.dart';
+import '../theme/app_theme.dart';
+import 'role_router.dart';
 
-/// Centralise "étant donné le rôle choisi, quel écran ouvrir ?" — utilisé
-/// au démarrage (SplashScreen) ET juste après le choix initial
-/// (RoleSelectionScreen), pour ne jamais dupliquer cette logique à deux
-/// endroits différents.
-class RoleRouter {
-  /// Résout l'écran à afficher pour le rôle actuellement stocké. À
-  /// appeler seulement si SettingsService.hasChosenRole est vrai (ou
-  /// juste après un setUserRole).
-  static Future<Widget> resolve({
-    required AppConfig config,
-    required ValueNotifier<bool> isAr,
-  }) async {
-    switch (SettingsService.userRole) {
-      case 'magasin':
-        await StoreService.loadPhoneAsId();
-        return StoreService.isLoggedIn
-            ? StoreDashboardScreen(config: config)
-            : StorePhoneLoginScreen(config: config);
-
-      case 'depanneuse':
-        await SosService.loadPhoneAsId();
-        return SosService.isDepanneuseLoggedIn
-            ? DepanneuseDashboardScreen(config: config)
-            : DepanneuseAuthScreen(config: config);
-
-      case 'conducteur':
-      default:
-        return SettingsService.hasChosenVehicleProfile
-            ? HomeScreen(config: config, isAr: isAr)
-            : OnboardingProfileScreen(
-                config: config,
-                isAr: isAr,
-                onChosen: (value) => SettingsService.setVehicleProfile(value),
-              );
-    }
-  }
-
-  /// Réinitialise le rôle choisi et relance l'app depuis zéro (retour à
-  /// l'écran de choix de rôle). Un simple push vers RoleSelectionScreen
-  /// ne suffit pas : HomeScreen a besoin du MÊME ValueNotifier<bool>
-  /// isAr que celui du MaterialApp racine (main.dart) pour que la
-  /// bascule FR/AR continue de fonctionner après un changement de
-  /// profil — relancer AjalakApp au complet recrée les deux ensemble,
-  /// toujours synchronisés (pas de nouveau isAr orphelin déconnecté du
-  /// MaterialApp réel).
-  static Future<void> changerDeProfil(BuildContext context) async {
-    await SettingsService.clearUserRole();
-    if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const AjalakApp()),
-      (route) => false,
-    );
-  }
-}
-
-/// Premier écran vu au tout premier lancement (avant même l'onboarding
-/// véhicule) : décide si l'app s'ouvre côté conducteur, magasin ou
-/// dépanneuse. Choix mémorisé localement (SettingsService.userRole),
-/// modifiable ensuite via "Changer de profil" dans chaque portail.
-/// Écran volontairement en français uniquement (comme les portails
-/// magasin/dépanneuse déjà existants) : très court, vu une seule fois.
-class RoleSelectionScreen extends StatefulWidget {
+/// Écran obligatoire au premier lancement.
+/// L'utilisateur choisit son rôle une seule fois (1 compte = 1 rôle).
+class RoleSelectionScreen extends StatelessWidget {
   final AppConfig config;
   final ValueNotifier<bool> isAr;
 
@@ -82,151 +16,224 @@ class RoleSelectionScreen extends StatefulWidget {
     required this.isAr,
   });
 
-  @override
-  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
-}
-
-class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
-  bool _loading = false;
-
-  Future<void> _choisir(String role) async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    await SettingsService.setUserRole(role);
-    if (!mounted) return;
-    final next = await RoleRouter.resolve(
-      config: widget.config,
-      isAr: widget.isAr,
-    );
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => next),
-    );
+  Future<void> _selectRole(BuildContext context, UserRole role) async {
+    // Toute la logique "quel écran pour quel rôle" vit dans RoleRouter,
+    // partagée avec SplashScreen — jamais dupliquée ici.
+    await RoleRouter.selectRole(context, role: role, config: config, isAr: isAr);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                widget.config.appName,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+    return ValueListenableBuilder<bool>(
+      valueListenable: isAr,
+      builder: (context, ar, _) {
+        final t = (String fr, String arText) => ar ? arText : fr;
+
+        return Directionality(
+          textDirection: ar ? TextDirection.rtl : TextDirection.ltr,
+          child: Scaffold(
+            backgroundColor: AppColors.background,
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          config.appName,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => isAr.value = !isAr.value,
+                          style: TextButton.styleFrom(
+                            foregroundColor: config.primaryColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          child: Text(
+                            ar ? 'FR' : 'AR',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    Text(
+                      t('Qui es-tu ?', 'من أنت؟'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      t(
+                        'Choisis ton profil pour continuer.\nTu pourras créer un autre compte plus tard.',
+                        'اختر ملفك الشخصي للمتابعة.\nيمكنك إنشاء حساب آخر لاحقاً.',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          _RoleCard(
+                            icon: Icons.directions_car_rounded,
+                            iconBg: const Color(0xFFDCFCE7),
+                            iconColor: config.primaryDark,
+                            title: t('Conducteur', 'سائق'),
+                            subtitle: t(
+                              'Gérer mes véhicules, pièces, rappels et envoyer une alerte SOS',
+                              'إدارة مركباتي، القطع، التذكيرات وإرسال تنبيه استغاثة',
+                            ),
+                            accent: config.primaryColor,
+                            onTap: () => _selectRole(context, UserRole.conducteur),
+                          ),
+                          const SizedBox(height: 14),
+                          _RoleCard(
+                            icon: Icons.storefront_rounded,
+                            iconBg: const Color(0xFFFFEDD5),
+                            iconColor: config.enchereColor,
+                            title: t('Magasin de pièces', 'محل قطع غيار'),
+                            subtitle: t(
+                              'Recevoir les demandes, gérer les commandes et mon profil magasin',
+                              'استقبال الطلبات وإدارة الطلبات وملفي كمحل',
+                            ),
+                            accent: config.enchereColor,
+                            onTap: () => _selectRole(context, UserRole.magasin),
+                          ),
+                          const SizedBox(height: 14),
+                          _RoleCard(
+                            icon: Icons.local_shipping_rounded,
+                            iconBg: const Color(0xFFFEE2E2),
+                            iconColor: config.sosColor,
+                            title: t('Dépanneuse', 'سطحّة'),
+                            subtitle: t(
+                              'Recevoir les alertes SOS et gérer mes interventions',
+                              'استقبال تنبيهات الاستغاثة وإدارة تدخّلاتي',
+                            ),
+                            accent: config.sosColor,
+                            onTap: () => _selectRole(context, UserRole.depanneuse),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      t(
+                        'Ce choix est définitif pour ce compte',
+                        'هذا الاختيار نهائي لهذا الحساب',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Tu es...',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black54, fontSize: 15),
-              ),
-              const SizedBox(height: 32),
-              _RoleCard(
-                icon: Icons.directions_car,
-                title: 'Conducteur',
-                subtitle: 'Mes véhicules, pièces détachées, rappels, SOS.',
-                color: widget.config.primaryColor,
-                enabled: !_loading,
-                onTap: () => _choisir('conducteur'),
-              ),
-              const SizedBox(height: 16),
-              _RoleCard(
-                icon: Icons.storefront_outlined,
-                title: 'Magasin',
-                subtitle: 'Recevoir les demandes de pièces, abonnement.',
-                color: Colors.black87,
-                enabled: !_loading,
-                onTap: () => _choisir('magasin'),
-              ),
-              const SizedBox(height: 16),
-              _RoleCard(
-                icon: Icons.local_shipping_outlined,
-                title: 'Dépanneuse',
-                subtitle: 'Recevoir les alertes de panne de ma wilaya.',
-                color: widget.config.sosColor,
-                enabled: !_loading,
-                onTap: () => _choisir('depanneuse'),
-              ),
-              const SizedBox(height: 24),
-              if (_loading) const Center(child: CircularProgressIndicator()),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
 class _RoleCard extends StatelessWidget {
   final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
   final String title;
   final String subtitle;
-  final Color color;
-  final bool enabled;
+  final Color accent;
   final VoidCallback onTap;
 
   const _RoleCard({
     required this.icon,
+    required this.iconBg,
+    required this.iconColor,
     required this.title,
     required this.subtitle,
-    required this.color,
-    required this.enabled,
+    required this.accent,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.5,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.border, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(icon, color: color, size: 30),
+                child: Icon(icon, color: iconColor, size: 28),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 4),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.black54)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.3,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.black38),
+              Icon(Icons.chevron_right_rounded, color: accent, size: 28),
             ],
           ),
         ),

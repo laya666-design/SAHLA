@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../config/app_config.dart';
-import 'role_selection_screen.dart';
-import '../services/vehicule_service.dart';
+import 'role_router.dart';
 
 /// Splash plein écran avec la roue qui tourne (VROUM).
-/// Joue la vidéo une fois, puis passe automatiquement à l'app normale.
+/// Puis route selon le rôle (ou RoleSelectionScreen au premier lancement).
 class SplashScreen extends StatefulWidget {
   final AppConfig config;
   final ValueNotifier<bool> isAr;
@@ -33,18 +32,13 @@ class _SplashScreenState extends State<SplashScreen> {
         if (!mounted) return;
         setState(() => _initialized = true);
         _controller.setLooping(false);
-        _controller.setVolume(0); // silencieux
+        _controller.setVolume(0);
         _controller.play();
-
-        // Dès que la vidéo se termine → on passe à l'app
         _controller.addListener(_onVideoUpdate);
       }).catchError((e) {
-        // Si la vidéo échoue, on passe directement à l'app
         _goToApp();
       });
 
-    // Sécurité : on ne reste jamais bloqué plus de 8 secondes
-    // (la vidéo VROUM fait ~6 s)
     Future.delayed(const Duration(seconds: 8), _goToApp);
   }
 
@@ -55,29 +49,16 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
-  Future<void> _goToApp() async {
+  void _goToApp() {
     if (_navigated || !mounted) return;
     _navigated = true;
 
-    // Avant l'onboarding véhicule : d'abord savoir QUI ouvre l'app
-    // (conducteur / magasin / dépanneuse). Une fois le rôle choisi,
-    // RoleRouter centralise "quel écran pour ce rôle" — voir
-    // role_selection_screen.dart. Ça évite de dupliquer cette logique
-    // ici et dans RoleSelectionScreen.
-    Widget next;
-    if (!SettingsService.hasChosenRole) {
-      next = RoleSelectionScreen(config: widget.config, isAr: widget.isAr);
-    } else {
-      next = await RoleRouter.resolve(
-        config: widget.config,
-        isAr: widget.isAr,
-      );
-      if (!mounted) return;
-    }
-
+    // Le choix de l'écran suivant vit dans RoleRouter, partagé avec
+    // RoleSelectionScreen — jamais dupliqué ici.
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => next,
+        pageBuilder: (_, __, ___) =>
+            RoleRouter.resolve(config: widget.config, isAr: widget.isAr),
         transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);
@@ -114,4 +95,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-

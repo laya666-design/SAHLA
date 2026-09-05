@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'vehicule.dart';
+import '../models/user_role.dart';
 
 /// Stockage 100% local (Hive) — pas de backend, cohérent avec l'OCR qui
 /// fonctionne déjà hors-ligne. Un seul véhicule gratuit ; au-delà, il faut
@@ -75,27 +76,6 @@ class SettingsService {
 
   static Future<void> setPremium(bool value) async {
     await _box.put(_premiumKey, value);
-  }
-
-  // --- Rôle choisi (conducteur / magasin / dépanneuse) ---
-  // Choisi une seule fois, au tout premier lancement, avant même
-  // l'onboarding véhicule — pilote quel portail (et quel écran de
-  // connexion) l'app ouvre au démarrage. Voir role_selection_screen.dart
-  // (RoleRouter). Modifiable ensuite via "Changer de profil" dans
-  // chaque portail.
-  static const String _userRoleKey = 'userRole';
-
-  /// 'conducteur', 'magasin', 'depanneuse', ou null si pas encore choisi.
-  static String? get userRole => _box.get(_userRoleKey) as String?;
-
-  static bool get hasChosenRole => userRole != null;
-
-  static Future<void> setUserRole(String value) async {
-    await _box.put(_userRoleKey, value);
-  }
-
-  static Future<void> clearUserRole() async {
-    await _box.delete(_userRoleKey);
   }
 
   // --- Rappels SMS / Appel (Premium) ---
@@ -182,5 +162,26 @@ class SettingsService {
     if (nouveaux.isEmpty) return;
     final merged = {...seenOfferIds, ...nouveaux}.toList();
     await _box.put(_seenOfferIdsKey, merged);
+  }
+
+  // --- Rôle utilisateur (conducteur / magasin / dépanneuse) ---
+  // Choisi une seule fois au premier lancement. 1 compte = 1 rôle.
+  static const String _userRoleKey = 'userRole';
+
+  static UserRole? get userRole =>
+      UserRole.fromStorage(_box.get(_userRoleKey) as String?);
+
+  static bool get hasChosenRole => userRole != null;
+
+  static Future<void> setUserRole(UserRole role) async {
+    await _box.put(_userRoleKey, role.storageValue);
+  }
+
+  /// Efface le rôle choisi — utilisé par "Changer de profil" pour
+  /// relancer l'app depuis l'écran "Qui es-tu ?". Ne touche pas aux
+  /// données propres à chaque rôle (véhicules, session magasin/dépanneuse
+  /// restent en place si l'utilisateur revient sur le même profil).
+  static Future<void> clearUserRole() async {
+    await _box.delete(_userRoleKey);
   }
 }

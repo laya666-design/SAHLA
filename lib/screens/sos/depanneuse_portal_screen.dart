@@ -3,6 +3,7 @@ import '../../config/app_config.dart';
 import '../../services/sos_service.dart';
 import 'depanneuse_auth_screen.dart';
 import 'depanneuse_dashboard_screen.dart';
+import 'depanneuse_shell_screen.dart';
 
 /// Accès caché à l'Espace Dépanneuse — atteint uniquement via un appui
 /// long sur le bouton SOS (pas de menu visible). Redirige directement
@@ -32,7 +33,7 @@ class _DepanneusePortalScreenState extends State<DepanneusePortalScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => DepanneuseDashboardScreen(config: widget.config),
+          builder: (_) => DepanneuseShellScreen(config: widget.config),
         ),
       );
     } else {

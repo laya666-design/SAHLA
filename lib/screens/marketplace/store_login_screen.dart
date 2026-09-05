@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/app_config.dart';
 import '../../services/store_service.dart';
 import 'store_dashboard_screen.dart';
+import 'magasin_shell_screen.dart';
 import 'store_forgot_password_screen.dart';
 import 'store_phone_login_screen.dart';
 import 'store_signup_screen.dart';
@@ -27,7 +28,7 @@ class _StoreLoginScreenState extends State<StoreLoginScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => StoreDashboardScreen(config: widget.config),
+        builder: (_) => MagasinShellScreen(config: widget.config),
       ),
     );
   }

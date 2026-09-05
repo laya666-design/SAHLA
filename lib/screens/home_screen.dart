@@ -5,7 +5,6 @@ import '../services/vehicule.dart';
 import '../services/vehicule_service.dart';
 import 'parts_portal_screen.dart';
 import 'profile_screen.dart';
-import 'sos/depanneuse_portal_screen.dart';
 import 'sos/sos_alert_sent_screen.dart';
 import 'sos/tel_picker_dialog.dart';
 import 'sos/wilaya_picker_dialog.dart';
@@ -24,17 +23,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
   bool _sosEnvoiEnCours = false;
-
-  // Appui long sur le bouton SOS : accès caché à l'Espace Dépanneuse
-  // (pas de menu visible — voir sos_service.dart).
-  void _ouvrirEspaceDepanneuse() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DepanneusePortalScreen(config: widget.config),
-      ),
-    );
-  }
 
   // Appui simple sur le bouton SOS : diffuse une alerte de panne aux
   // dépanneuses de la wilaya de l'utilisateur, après confirmation (pour
@@ -223,9 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             body: IndexedStack(index: safeIndex, children: screens),
-            floatingActionButton: GestureDetector(
-              onLongPress: _ouvrirEspaceDepanneuse,
-              child: FloatingActionButton(
+            floatingActionButton: FloatingActionButton(
                 backgroundColor: widget.config.sosColor,
                 onPressed: _sosEnvoiEnCours ? null : () => _envoyerAlerteSos(isAr),
                 child: _sosEnvoiEnCours
@@ -242,7 +228,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontWeight: FontWeight.w800,
                             fontSize: 13),
                       ),
-              ),
             ),
             bottomNavigationBar: NavigationBar(
               selectedIndex: safeIndex,

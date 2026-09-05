@@ -261,7 +261,28 @@ class SosService {
     });
   }
 
+  /// Alertes déjà acceptées (ou terminées) par la dépanneuse connectée.
+  /// Tri côté client, plus récentes d'abord.
+  static Stream<List<SosAlert>> myAcceptedAlertsStream() {
+    final docId = currentDepanneuseDocId;
+    if (docId == null) return const Stream.empty();
+    return FirebaseFirestore.instance
+        .collection(_alertsCollection)
+        .where('acceptedByDepanneuseId', isEqualTo: docId)
+        .snapshots()
+        .map((s) {
+      final alertes = s.docs.map(SosAlert.fromDoc).toList();
+      alertes.sort((a, b) {
+        final da = a.dateAcceptation ?? a.dateCreation;
+        final db = b.dateAcceptation ?? b.dateCreation;
+        return db.compareTo(da);
+      });
+      return alertes;
+    });
+  }
+
   static Future<void> saveFcmToken() async {
+
     final docId = currentDepanneuseDocId;
     if (docId == null) return;
     try {

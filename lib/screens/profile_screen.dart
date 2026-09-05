@@ -5,6 +5,7 @@ import '../services/vehicule_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/screen_background.dart';
 import 'admin/admin_login_screen.dart';
+import 'role_selection_screen.dart';
 
 /// Onglet Profil amélioré :
 /// - Carte compte claire (badge + nombre de véhicules)
@@ -826,6 +827,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             AdminLoginScreen(config: widget.config),
                       ),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Changer de profil (conducteur / magasin / dépanneuse)
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 4),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.swap_horiz,
+                          color: Colors.black54, size: 20),
+                    ),
+                    title: Text(t('Changer de profil', 'تغيير الملف الشخصي'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
+                    subtitle: Text(
+                      t('Conducteur, magasin ou dépanneuse',
+                          'سائق، متجر أو سطحة'),
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                    trailing:
+                        const Icon(Icons.chevron_right, color: Colors.grey),
+                    onTap: () => RoleRouter.changerDeProfil(context),
                   ),
                 ),
               ],

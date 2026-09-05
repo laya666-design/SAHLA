@@ -77,6 +77,27 @@ class SettingsService {
     await _box.put(_premiumKey, value);
   }
 
+  // --- Rôle choisi (conducteur / magasin / dépanneuse) ---
+  // Choisi une seule fois, au tout premier lancement, avant même
+  // l'onboarding véhicule — pilote quel portail (et quel écran de
+  // connexion) l'app ouvre au démarrage. Voir role_selection_screen.dart
+  // (RoleRouter). Modifiable ensuite via "Changer de profil" dans
+  // chaque portail.
+  static const String _userRoleKey = 'userRole';
+
+  /// 'conducteur', 'magasin', 'depanneuse', ou null si pas encore choisi.
+  static String? get userRole => _box.get(_userRoleKey) as String?;
+
+  static bool get hasChosenRole => userRole != null;
+
+  static Future<void> setUserRole(String value) async {
+    await _box.put(_userRoleKey, value);
+  }
+
+  static Future<void> clearUserRole() async {
+    await _box.delete(_userRoleKey);
+  }
+
   // --- Rappels SMS / Appel (Premium) ---
   // Mock pour l'instant : stocke juste la préférence localement.
   // L'envoi réel nécessite un service tiers payant (ex: Twilio) + un
